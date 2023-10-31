@@ -15,8 +15,8 @@ namespace DrakiaXYZ.QuestTracker.Helpers
         public static event EventHandler<QuestClass> QuestUntracked;
         
         private static QuestsTracker _instance = new QuestsTracker();
-        private static string _questsPath = Path.Combine(QuestTrackerPlugin.ConfigFolder, "quests.json");
         private static ManualLogSource _logger;
+        private static Profile _profile = null;
 
         private HashSet<string> _trackedQuests = new HashSet<string>();
         public HashSet<string> TrackedQuests
@@ -34,7 +34,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
 
         public static bool TrackQuest(QuestClass quest)
         {
-            string questId = quest.Template.TemplateId;
+            string questId = quest.Id;
             bool wasAdded = _instance.TrackedQuests.Add(questId);
             QuestTracked?.Invoke(null, quest);
 
@@ -43,7 +43,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
 
         public static bool UntrackQuest(QuestClass quest)
         {
-            string questId = quest.Template.TemplateId;
+            string questId = quest.Id;
             bool wasRemoved = _instance.TrackedQuests.Remove(questId);
             QuestUntracked?.Invoke(null, quest);
             return wasRemoved;
@@ -51,7 +51,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
 
         public static bool IsTracked(QuestClass quest)
         {
-            string questId = quest.Template.TemplateId;
+            string questId = quest.Id;
             bool tracked = _instance.TrackedQuests.Contains(questId);
 
             // Remove the quest if it's no longer in a trackable status
@@ -72,9 +72,16 @@ namespace DrakiaXYZ.QuestTracker.Helpers
 
         public static void Save()
         {
+            // Make sure we have a stored profile
+            if (_profile == null)
+            {
+                throw new Exception("Unable to save, missing profile");
+            }
+
+            string questsPath = Path.Combine(QuestTrackerPlugin.ConfigFolder, $"{_profile.Id}.json");
             string jsonString = JsonConvert.SerializeObject(GetTrackedQuests(), Formatting.Indented);
-            File.Create(_questsPath).Dispose();
-            StreamWriter streamWriter = new StreamWriter(_questsPath);
+            File.Create(questsPath).Dispose();
+            StreamWriter streamWriter = new StreamWriter(questsPath);
             streamWriter.Write(jsonString);
             streamWriter.Flush();
             streamWriter.Close();
@@ -82,7 +89,10 @@ namespace DrakiaXYZ.QuestTracker.Helpers
 
         public static bool Load(QuestControllerClass questController)
         {
-            if (!File.Exists(_questsPath))
+            _profile = questController.Profile;
+
+            string questsPath = Path.Combine(QuestTrackerPlugin.ConfigFolder, $"{_profile.Id}.json");
+            if (!File.Exists(questsPath))
             {
                 _instance._trackedQuests = new HashSet<string>();
                 return true;
@@ -90,7 +100,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
 
             try
             {
-                _instance._trackedQuests = JsonConvert.DeserializeObject<HashSet<string>>(File.ReadAllText(_questsPath));
+                _instance._trackedQuests = JsonConvert.DeserializeObject<HashSet<string>>(File.ReadAllText(questsPath));
             }
             catch (Exception ex)
             {
@@ -102,7 +112,10 @@ namespace DrakiaXYZ.QuestTracker.Helpers
             int removedCount = _instance._trackedQuests.RemoveWhere(questId =>
             {
                 QuestClass quest = questController.Quests.GetQuest(questId);
-                if (quest == null) return true;
+                if (quest == null)
+                {
+                    return true;
+                }
 
                 EQuestStatus status = quest.QuestStatus;
                 if (status != EQuestStatus.Started && status != EQuestStatus.AvailableForFinish && status != EQuestStatus.MarkedAsFailed)

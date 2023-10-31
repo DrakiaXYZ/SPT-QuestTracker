@@ -18,9 +18,11 @@ namespace DrakiaXYZ.QuestTracker.Helpers
         public static ConfigEntry<int> AutoHideTimer;
         public static ConfigEntry<bool> ShowOnObjective;
         public static ConfigEntry<bool> ProgressAsPercent;
+        public static ConfigEntry<bool> ObjectivesAsPercent;
+        public static ConfigEntry<bool> ShowObjectives;
 
         public static ConfigEntry<int> MainFontSize;
-        //public static ConfigEntry<int> SubFontSize;
+        public static ConfigEntry<int> SubFontSize;
 
         public static void Init(ConfigFile Config)
         {
@@ -49,7 +51,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
                 new ConfigDescription(
                     "Whether to always include the current map's quests",
                     null,
-                    new ConfigurationManagerAttributes { Order = 6 }));
+                    new ConfigurationManagerAttributes { Order = 8 }));
 
             ExcludeOtherMapQuests = Config.Bind(
                 InGameSectionTitle,
@@ -58,7 +60,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
                 new ConfigDescription(
                     "Whether to always exclude quests not for the current or 'Any' map",
                     null,
-                    new ConfigurationManagerAttributes { Order = 5 }));
+                    new ConfigurationManagerAttributes { Order = 7 }));
 
             ShowOnObjective = Config.Bind(
                 InGameSectionTitle,
@@ -67,7 +69,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
                 new ConfigDescription(
                     "Whether to temporarily show the list on objective progress",
                     null,
-                    new ConfigurationManagerAttributes { Order = 4 }));
+                    new ConfigurationManagerAttributes { Order = 6 }));
 
             AutoHide = Config.Bind(
                 InGameSectionTitle,
@@ -76,7 +78,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
                 new ConfigDescription(
                     "Whether to automatically hide the list after a timeout",
                     null,
-                    new ConfigurationManagerAttributes { Order = 3 }));
+                    new ConfigurationManagerAttributes { Order = 5 }));
 
             AutoHideTimer = Config.Bind(
                 InGameSectionTitle,
@@ -85,7 +87,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
                 new ConfigDescription(
                     "How long to show before hiding",
                     new AcceptableValueRange<int>(1, 60),
-                    new ConfigurationManagerAttributes { Order = 2 }));
+                    new ConfigurationManagerAttributes { Order = 4 }));
 
             ProgressAsPercent = Config.Bind(
                 InGameSectionTitle,
@@ -93,6 +95,24 @@ namespace DrakiaXYZ.QuestTracker.Helpers
                 true,
                 new ConfigDescription(
                     "Whether to show the progress as a percentage, or numeric count",
+                    null,
+                    new ConfigurationManagerAttributes { Order = 3 }));
+
+            ObjectivesAsPercent = Config.Bind(
+                InGameSectionTitle,
+                "Objectives As Percent",
+                false,
+                new ConfigDescription(
+                    "Whether to show individual objectives as a percentage, or numeric count",
+                    null,
+                    new ConfigurationManagerAttributes { Order = 2 }));
+
+            ShowObjectives = Config.Bind(
+                InGameSectionTitle,
+                "Show Objectives",
+                false,
+                new ConfigDescription(
+                    "Whether to show individual objetices",
                     null,
                     new ConfigurationManagerAttributes { Order = 1 }));
 
@@ -102,6 +122,15 @@ namespace DrakiaXYZ.QuestTracker.Helpers
                 36,
                 new ConfigDescription(
                     "The main font size",
+                    new AcceptableValueRange<int>(12, 92),
+                    new ConfigurationManagerAttributes { Order = 2, IsAdvanced = true }));
+
+            SubFontSize = Config.Bind(
+                DisplaySectionTitle,
+                "Objective Font Size",
+                20,
+                new ConfigDescription(
+                    "The objective font size",
                     new AcceptableValueRange<int>(12, 92),
                     new ConfigurationManagerAttributes { Order = 1, IsAdvanced = true }));
         }

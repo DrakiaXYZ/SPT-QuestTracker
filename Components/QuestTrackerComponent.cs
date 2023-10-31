@@ -9,8 +9,8 @@ using EFT.UI;
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
-using System.Security.Claims;
 using System.Text;
 using UnityEngine;
 
@@ -22,6 +22,8 @@ namespace DrakiaXYZ.QuestTracker.Components
         private GUIContent guiContentProgress;
         private GUIStyle guiStyleQuest;
         private GUIStyle guiStyleProgress;
+        private Vector2 guiSizeQuest;
+        private Vector2 guiSizeProgress;
         private Rect guiRectQuest;
         private Rect guiRectProgress;
         private StringBuilder stringBuilderQuestNames = new StringBuilder();
@@ -106,7 +108,7 @@ namespace DrakiaXYZ.QuestTracker.Components
                     status == EQuestStatus.MarkedAsFailed) &&
                     quest.Template.LocationId == locationId)
                 {
-                    QuestClass questInstance = questController.Quests.GetQuest(quest.Template.Id);
+                    QuestClass questInstance = questController.Quests.GetQuest(quest.Id);
                     if (questInstance == null)
                     {
                         Logger.LogWarning($"Quest instance null {quest.Id}");
@@ -118,6 +120,9 @@ namespace DrakiaXYZ.QuestTracker.Components
             
             // Pre-load the tracked quest dict
             CacheQuests();
+
+            // Store the current hash so we don't treat startup as an objective change
+            HaveQuestsChanged();
         }
 
         private void SettingsChanged(object sender, EventArgs args)
@@ -138,11 +143,8 @@ namespace DrakiaXYZ.QuestTracker.Components
                 }
             }
 
-            // If the exclude option was changed, we need to re-cache quests
-            if (e.ChangedSetting == Settings.ExcludeOtherMapQuests)
-            {
-                CacheQuests();
-            }
+            // Force a refresh
+            CacheQuests();
         }
 
         private void GuiSettingsChanged(object sender, EventArgs e)
@@ -157,7 +159,13 @@ namespace DrakiaXYZ.QuestTracker.Components
             foreach (var questId in QuestsTracker.GetTrackedQuests())
             {
                 QuestClass quest = questController.Quests.GetQuest(questId);
-                if (quest == null) continue;
+                if (quest == null)
+                {
+                    Logger.LogDebug($"Skipping {questId} because it's not in quest controller");
+                    continue;
+                }
+
+                Logger.LogDebug($"{quest.Template.Name}  {quest.Template.LocationId}  {locationId}");
 
                 if (!Settings.ExcludeOtherMapQuests.Value
                     || quest.Template.LocationId == locationId
@@ -252,6 +260,12 @@ namespace DrakiaXYZ.QuestTracker.Components
                 guiContentProgress = new GUIContent();
                 guiRectQuest = new Rect();
                 guiRectProgress = new Rect();
+
+                var stopwatch = Stopwatch.StartNew();
+                BuildStrings();
+                Logger.LogDebug($"Build strings: {stopwatch.ElapsedMilliseconds}");
+                UpdateGui();
+                Logger.LogDebug($"GUI Init: {stopwatch.ElapsedMilliseconds}");
             }
 
             // Don't draw if the panel isn't visible
@@ -259,27 +273,8 @@ namespace DrakiaXYZ.QuestTracker.Components
 
             if (updateGuiPending)
             {
-                stringBuilderQuestNames.Clear();
-                stringBuilderProgress.Clear();
-
-                foreach (var quest in trackedQuests.Values.ToList().OrderBy(x => x.Template.Name))
-                {
-                    AddQuestToStringBuilder(quest);
-                }
-
-                if (Settings.IncludeMapQuests.Value)
-                {
-                    foreach (var quest in mapQuests.OrderBy(x => x.Template.Name))
-                    {
-                        if (trackedQuests.ContainsKey(quest.Template.Id)) continue;
-                        AddQuestToStringBuilder(quest);
-                    }
-                }
-
-                guiContentQuest.text = stringBuilderQuestNames.ToString().TrimEnd(Environment.NewLine.ToCharArray());
-                guiContentProgress.text = stringBuilderProgress.ToString().TrimEnd(Environment.NewLine.ToCharArray());
-
-                updateGuiPending = false;
+                BuildStrings();
+                UpdateGui();
             }
 
             // If there's no text to draw, don't do anything
@@ -288,18 +283,57 @@ namespace DrakiaXYZ.QuestTracker.Components
                 return;
             }
 
-            Vector2 guiSizeProgress = guiStyleProgress.CalcSize(guiContentProgress);
             guiSizeProgress.x = Math.Max(guiSizeProgress.x, 150);
             guiRectProgress.x = Screen.width - guiSizeProgress.x - 5f;
             guiRectProgress.y = (Screen.height / 2) - (guiSizeProgress.y / 2);
             guiRectProgress.size = guiSizeProgress;
             GUI.Box(guiRectProgress, guiContentProgress, guiStyleProgress);
 
-            Vector2 guiSize = guiStyleQuest.CalcSize(guiContentQuest);
-            guiRectQuest.x = Screen.width - guiSize.x - guiSizeProgress.x - 5f;
-            guiRectQuest.y = (Screen.height / 2) - (guiSize.y / 2);
-            guiRectQuest.size = guiSize;
+            guiRectQuest.x = Screen.width - guiSizeQuest.x - guiSizeProgress.x - 5f;
+            guiRectQuest.y = (Screen.height / 2) - (guiSizeQuest.y / 2);
+            guiRectQuest.size = guiSizeQuest;
             GUI.Box(guiRectQuest, guiContentQuest, guiStyleQuest);
+        }
+
+        private void UpdateGui()
+        {
+            guiContentQuest.text = stringBuilderQuestNames.ToString().TrimEnd(Environment.NewLine.ToCharArray());
+            guiContentProgress.text = stringBuilderProgress.ToString().TrimEnd(Environment.NewLine.ToCharArray());
+
+            guiSizeQuest = guiStyleQuest.CalcSize(guiContentQuest);
+            guiSizeProgress = guiStyleProgress.CalcSize(guiContentProgress);
+
+            updateGuiPending = false;
+        }
+
+        private void BuildStrings()
+        {
+            stringBuilderQuestNames.Clear();
+            stringBuilderProgress.Clear();
+
+            foreach (var quest in trackedQuests.Values.ToList().OrderBy(quest => quest.Template.Name))
+            {
+                AddQuestToStringBuilder(quest);
+
+                if (Settings.ShowObjectives.Value)
+                {
+                    AddQuestConditionsToStringBuilder(quest);
+                }
+            }
+
+            if (Settings.IncludeMapQuests.Value)
+            {
+                foreach (var quest in mapQuests.OrderBy(quest => quest.Template.Name))
+                {
+                    if (quest.Template != null && trackedQuests.ContainsKey(quest.Id)) continue;
+                    AddQuestToStringBuilder(quest);
+
+                    if (Settings.ShowObjectives.Value)
+                    {
+                        AddQuestConditionsToStringBuilder(quest);
+                    }
+                }
+            }
         }
 
         private void AddQuestToStringBuilder(QuestClass quest)
@@ -344,12 +378,61 @@ namespace DrakiaXYZ.QuestTracker.Components
             }
         }
 
+        private void AddQuestConditionsToStringBuilder(QuestClass quest)
+        {
+            // Filter out any quest that isn't currently started/done/failed
+            EQuestStatus status = quest.QuestStatus;
+            if (status != EQuestStatus.Started && status != EQuestStatus.AvailableForFinish && status != EQuestStatus.MarkedAsFailed)
+            {
+                return;
+            }
+
+            foreach (var condition in quest.NecessaryConditions)
+            {
+                stringBuilderProgress.Append($"<size={Settings.SubFontSize.Value}>");
+                if (quest.IsConditionDone(condition))
+                {
+                    stringBuilderProgress.Append("<color=#00ff00ff>✓</color>");
+                }
+                else
+                {
+                    var conditionHandler = quest.ConditionHandlers[condition];
+                    if (conditionHandler.HasGetter())
+                    {
+                        float max = condition.value;
+                        float current = Mathf.Min(conditionHandler.CurrentValue, max);
+
+                        if (Settings.ObjectivesAsPercent.Value)
+                        {
+                            stringBuilderProgress.Append($"{Mathf.FloorToInt((current / max) * 100)}%");
+                        }
+                        else
+                        {
+                            stringBuilderProgress.Append($"{current} / {max}");
+                        }
+                    }
+                }
+                stringBuilderProgress.AppendLine("</size>");
+
+                string description = condition.FormattedDescription;
+                if (description.Length > 60)
+                {
+                    description = description.Substring(0, description.LastIndexOf(' ', 60)) + "…";
+                }
+                stringBuilderQuestNames.AppendLine($"<size={Settings.SubFontSize.Value}>{description}</size>");
+            }
+
+            // Add some padding before the next task
+            stringBuilderQuestNames.AppendLine("<size=1></size>");
+            stringBuilderProgress.AppendLine("<size=1></size>");
+        }
+
         private bool HaveQuestsChanged()
         {
             int questsHash = 17;
             foreach (var quest in trackedQuests.Values)
             {
-                questsHash = questsHash * 31 + quest.Template.Id.GetHashCode();
+                questsHash = questsHash * 31 + quest.Id.GetHashCode();
                 questsHash = questsHash * 31 + quest.Progress.GetHashCode();
             }
 
@@ -357,7 +440,7 @@ namespace DrakiaXYZ.QuestTracker.Components
             {
                 foreach (var quest in mapQuests)
                 {
-                    questsHash = questsHash * 31 + quest.Template.Id.GetHashCode();
+                    questsHash = questsHash * 31 + quest.Id.GetHashCode();
                     questsHash = questsHash * 31 + quest.Progress.GetHashCode();
                 }
             }
@@ -398,11 +481,14 @@ namespace DrakiaXYZ.QuestTracker.Components
         {
             Settings.MainFontSize.SettingChanged += GuiSettingsChanged;
 
+            Settings.SubFontSize.SettingChanged += SettingsChanged;
             Settings.IncludeMapQuests.SettingChanged += SettingsChanged;
             Settings.ExcludeOtherMapQuests.SettingChanged += SettingsChanged;
             Settings.AutoHide.SettingChanged += SettingsChanged;
             Settings.ShowOnObjective.SettingChanged += SettingsChanged;
             Settings.ProgressAsPercent.SettingChanged += SettingsChanged;
+            Settings.ObjectivesAsPercent.SettingChanged += SettingsChanged;
+            Settings.ShowObjectives.SettingChanged += SettingsChanged;
 
             QuestsTracker.QuestTracked += QuestTracked;
             QuestsTracker.QuestUntracked += QuestUntracked;
@@ -410,12 +496,16 @@ namespace DrakiaXYZ.QuestTracker.Components
 
         private void DetachEvents()
         {
-            Settings.MainFontSize.SettingChanged -= SettingsChanged;
+            Settings.MainFontSize.SettingChanged -= GuiSettingsChanged;
 
+            Settings.SubFontSize.SettingChanged -= SettingsChanged;
             Settings.IncludeMapQuests.SettingChanged -= SettingsChanged;
             Settings.ExcludeOtherMapQuests.SettingChanged -= SettingsChanged;
             Settings.AutoHide.SettingChanged -= SettingsChanged;
             Settings.ShowOnObjective.SettingChanged -= SettingsChanged;
+            Settings.ProgressAsPercent.SettingChanged -= SettingsChanged;
+            Settings.ObjectivesAsPercent.SettingChanged -= SettingsChanged;
+            Settings.ShowObjectives.SettingChanged -= SettingsChanged;
 
             QuestsTracker.QuestTracked -= QuestTracked;
             QuestsTracker.QuestUntracked -= QuestUntracked;
