@@ -17,6 +17,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
         public static ConfigEntry<bool> AutoHide;
         public static ConfigEntry<int> AutoHideTimer;
         public static ConfigEntry<bool> ShowOnObjective;
+        public static ConfigEntry<bool> ProgressAsPercent;
 
         public static ConfigEntry<int> MainFontSize;
         //public static ConfigEntry<int> SubFontSize;
@@ -48,7 +49,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
                 new ConfigDescription(
                     "Whether to always include the current map's quests",
                     null,
-                    new ConfigurationManagerAttributes { Order = 5 }));
+                    new ConfigurationManagerAttributes { Order = 6 }));
 
             ExcludeOtherMapQuests = Config.Bind(
                 InGameSectionTitle,
@@ -57,7 +58,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
                 new ConfigDescription(
                     "Whether to always exclude quests not for the current or 'Any' map",
                     null,
-                    new ConfigurationManagerAttributes { Order = 4 }));
+                    new ConfigurationManagerAttributes { Order = 5 }));
 
             ShowOnObjective = Config.Bind(
                 InGameSectionTitle,
@@ -66,7 +67,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
                 new ConfigDescription(
                     "Whether to temporarily show the list on objective progress",
                     null,
-                    new ConfigurationManagerAttributes { Order = 3 }));
+                    new ConfigurationManagerAttributes { Order = 4 }));
 
             AutoHide = Config.Bind(
                 InGameSectionTitle,
@@ -75,7 +76,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
                 new ConfigDescription(
                     "Whether to automatically hide the list after a timeout",
                     null,
-                    new ConfigurationManagerAttributes { Order = 2 }));
+                    new ConfigurationManagerAttributes { Order = 3 }));
 
             AutoHideTimer = Config.Bind(
                 InGameSectionTitle,
@@ -84,6 +85,15 @@ namespace DrakiaXYZ.QuestTracker.Helpers
                 new ConfigDescription(
                     "How long to show before hiding",
                     new AcceptableValueRange<int>(1, 60),
+                    new ConfigurationManagerAttributes { Order = 2 }));
+
+            ProgressAsPercent = Config.Bind(
+                InGameSectionTitle,
+                "Progress As Percent",
+                true,
+                new ConfigDescription(
+                    "Whether to show the progress as a percentage, or numeric count",
+                    null,
                     new ConfigurationManagerAttributes { Order = 1 }));
 
             MainFontSize = Config.Bind(

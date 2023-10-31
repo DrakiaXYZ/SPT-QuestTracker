@@ -111,6 +111,7 @@ namespace DrakiaXYZ.QuestTracker.Components
 
             // Flag that an update check is needed
             lastUpdate = 0;
+            updateGuiPending = true;
         }
 
         private void GuiSettingsChanged(object sender, EventArgs e)
@@ -284,7 +285,24 @@ namespace DrakiaXYZ.QuestTracker.Components
                     stringBuilderProgress.AppendLine("<color=#ff0000ff>✗</color>");
                     break;
                 default:
-                    stringBuilderProgress.AppendLine($"{(quest.Progress.current / quest.Progress.absolute) * 100}%");
+                    // No divide by zero errors here
+                    float current = quest.Progress.current;
+                    float max = quest.Progress.absolute;
+                    if (max.ApproxEquals(0f))
+                    {
+                        stringBuilderProgress.AppendLine("<color=#00ff00ff>✓</color>");
+                    }
+                    else
+                    {
+                        if (Settings.ProgressAsPercent.Value)
+                        {
+                            stringBuilderProgress.AppendLine($"{Mathf.FloorToInt((current / max) * 100)}%");
+                        }
+                        else
+                        {
+                            stringBuilderProgress.AppendLine($"{current} / {max}");
+                        }
+                    }
                     break;
             }
         }
@@ -347,6 +365,7 @@ namespace DrakiaXYZ.QuestTracker.Components
             Settings.ExcludeOtherMapQuests.SettingChanged += SettingsChanged;
             Settings.AutoHide.SettingChanged += SettingsChanged;
             Settings.ShowOnObjective.SettingChanged += SettingsChanged;
+            Settings.ProgressAsPercent.SettingChanged += SettingsChanged;
 
             QuestsTracker.QuestTracked += QuestTracked;
             QuestsTracker.QuestUntracked += QuestUntracked;
