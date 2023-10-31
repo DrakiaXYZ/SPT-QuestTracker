@@ -35,16 +35,18 @@ namespace DrakiaXYZ.QuestTracker.Helpers
         public static bool TrackQuest(QuestClass quest)
         {
             string questId = quest.Template.TemplateId;
+            bool wasAdded = _instance.TrackedQuests.Add(questId);
             QuestTracked?.Invoke(null, quest);
 
-            return _instance.TrackedQuests.Add(questId);
+            return wasAdded;
         }
 
         public static bool UntrackQuest(QuestClass quest)
         {
             string questId = quest.Template.TemplateId;
+            bool wasRemoved = _instance.TrackedQuests.Remove(questId);
             QuestUntracked?.Invoke(null, quest);
-            return _instance.TrackedQuests.Remove(questId);
+            return wasRemoved;
         }
 
         public static bool IsTracked(QuestClass quest)
@@ -100,6 +102,8 @@ namespace DrakiaXYZ.QuestTracker.Helpers
             int removedCount = _instance._trackedQuests.RemoveWhere(questId =>
             {
                 QuestClass quest = questController.Quests.GetQuest(questId);
+                if (quest == null) return true;
+
                 EQuestStatus status = quest.QuestStatus;
                 if (status != EQuestStatus.Started && status != EQuestStatus.AvailableForFinish && status != EQuestStatus.MarkedAsFailed)
                 {

@@ -64,16 +64,19 @@ namespace DrakiaXYZ.QuestTracker.Components
             {
                 throw new Exception("Error creating QuestTrackerComponent, gameWorld, botGame or player was null");
             }
-
+            if (player.Profile == null || player.Profile.QuestsData == null)
+            {
+                throw new Exception("Error creating QuestTrackerComponent, profile or QuestData null");
+            }
             if (commonUi == null)
             {
                 throw new Exception("Error creating QuestTrackerComponent, commonUi was null");
             }
-
+            
             questController = AccessTools.Field(typeof(Player), "_questController").GetValue(player) as QuestControllerClass;
-            if (questController == null)
+            if (questController == null || questController.Quests == null)
             {
-                throw new Exception("Error creating QuestTrackerComponent, questController was null");
+                throw new Exception("Error creating QuestTrackerComponent, questController or Quests was null");
             }
 
             panelVisible = Settings.VisibleAtRaidStart.Value;
@@ -87,10 +90,15 @@ namespace DrakiaXYZ.QuestTracker.Components
             // Add any current map quests
             var localGameBaseType = PatchConstants.LocalGameType.BaseType;
             locationId = AccessTools.Property(localGameBaseType, "LocationObjectId").GetValue(botGame) as string;
-
             foreach (var quest in player.Profile.QuestsData)
             {
                 if (quest == null) continue;
+
+                if (quest.Template == null)
+                {
+                    Logger.LogDebug($"Quest template null {quest.Id}");
+                    continue;
+                }
 
                 EQuestStatus status = quest.Status;
                 if ((status == EQuestStatus.Started ||
@@ -98,10 +106,16 @@ namespace DrakiaXYZ.QuestTracker.Components
                     status == EQuestStatus.MarkedAsFailed) &&
                     quest.Template.LocationId == locationId)
                 {
-                    mapQuests.Add(questController.Quests.GetQuest(quest.Template.Id));
+                    QuestClass questInstance = questController.Quests.GetQuest(quest.Template.Id);
+                    if (questInstance == null)
+                    {
+                        Logger.LogWarning($"Quest instance null {quest.Id}");
+                        continue;
+                    }
+                    mapQuests.Add(questInstance);
                 }
             }
-
+            
             // Pre-load the tracked quest dict
             CacheQuests();
         }
@@ -129,10 +143,6 @@ namespace DrakiaXYZ.QuestTracker.Components
             {
                 CacheQuests();
             }
-
-            // Flag that an update check is needed
-            lastUpdate = 0;
-            updateGuiPending = true;
         }
 
         private void GuiSettingsChanged(object sender, EventArgs e)
@@ -151,21 +161,25 @@ namespace DrakiaXYZ.QuestTracker.Components
 
                 if (!Settings.ExcludeOtherMapQuests.Value
                     || quest.Template.LocationId == locationId
-                    || quest.Template.LocationId == "any")
+                    || quest.Template.LocationId.ToLower() == "any")
                 {
                     trackedQuests.Add(questId, quest);
                 }
             }
+
+            // Flag that an update check is needed
+            lastUpdate = 0;
+            updateGuiPending = true;
         }
 
         private void QuestTracked(object sender, QuestClass quest)
         {
-            trackedQuests.Add(quest.Template.Id, quest);
+            CacheQuests();
         }
 
         private void QuestUntracked(object sender, QuestClass quest)
         {
-            trackedQuests.Remove(quest.Template.Id);
+            CacheQuests();
         }
 
         private void UpdateGuiStyle()
