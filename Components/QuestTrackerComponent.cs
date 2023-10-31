@@ -57,9 +57,24 @@ namespace DrakiaXYZ.QuestTracker.Components
             // Setup access to game objects
             gameWorld = Singleton<GameWorld>.Instance;
             botGame = Singleton<IBotGame>.Instance;
-            player = gameWorld.MainPlayer;
+            player = gameWorld?.MainPlayer;
             commonUi = MonoBehaviourSingleton<CommonUI>.Instance;
+
+            if (gameWorld == null || botGame == null || player == null)
+            {
+                throw new Exception("Error creating QuestTrackerComponent, gameWorld, botGame or player was null");
+            }
+
+            if (commonUi == null)
+            {
+                throw new Exception("Error creating QuestTrackerComponent, commonUi was null");
+            }
+
             questController = AccessTools.Field(typeof(Player), "_questController").GetValue(player) as QuestControllerClass;
+            if (questController == null)
+            {
+                throw new Exception("Error creating QuestTrackerComponent, questController was null");
+            }
 
             panelVisible = Settings.VisibleAtRaidStart.Value;
             if (panelVisible && Settings.AutoHide.Value)
@@ -75,7 +90,13 @@ namespace DrakiaXYZ.QuestTracker.Components
 
             foreach (var quest in player.Profile.QuestsData)
             {
-                if (quest.Template.LocationId == locationId)
+                if (quest == null) continue;
+
+                EQuestStatus status = quest.Status;
+                if ((status == EQuestStatus.Started ||
+                    status == EQuestStatus.AvailableForFinish ||
+                    status == EQuestStatus.MarkedAsFailed) &&
+                    quest.Template.LocationId == locationId)
                 {
                     mapQuests.Add(questController.Quests.GetQuest(quest.Template.Id));
                 }
@@ -126,6 +147,8 @@ namespace DrakiaXYZ.QuestTracker.Components
             foreach (var questId in QuestsTracker.GetTrackedQuests())
             {
                 QuestClass quest = questController.Quests.GetQuest(questId);
+                if (quest == null) continue;
+
                 if (!Settings.ExcludeOtherMapQuests.Value
                     || quest.Template.LocationId == locationId
                     || quest.Template.LocationId == "any")
