@@ -1,4 +1,5 @@
 ﻿using Aki.Reflection.Patching;
+using Aki.Reflection.Utils;
 using BepInEx;
 using DrakiaXYZ.QuestTracker.Components;
 using DrakiaXYZ.QuestTracker.Helpers;
@@ -20,6 +21,8 @@ using UnityEngine.UI;
 namespace DrakiaXYZ.QuestTracker
 {
     [BepInPlugin("xyz.drakia.questtracker", "DrakiaXYZ-QuestTracker", "1.0.0")]
+    // We have a soft dependency on TaskListFixes so that our sort will run after its sort
+    [BepInDependency("xyz.drakia.tasklistfixes", BepInDependency.DependencyFlags.SoftDependency)]
     public class QuestTrackerPlugin : BaseUnityPlugin
     {
         public static string PluginFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
@@ -28,11 +31,15 @@ namespace DrakiaXYZ.QuestTracker
         public static bool QuestsScreenActive = false;
         public static GraphicRaycaster[] GraphicsRaycasters;
 
+        public static Color TrackedColor = new Color(0, 72, 87);
+        public static string TrackedStatus = "Tracked!";
+
         private List<RaycastResult> _hits = new List<RaycastResult>();
         private EventSystem _eventSystem;
 
         private static FieldInfo _questClassField;
         private static FieldInfo _taskDescriptionField;
+        private static FieldInfo _statusLabelField;
         private static MethodInfo _getColorMethod;
         private static MethodInfo _setColorMethod;
         private static MethodInfo _questListItemUpdateViewMethod;
@@ -53,6 +60,7 @@ namespace DrakiaXYZ.QuestTracker
             Type notesTaskType = typeof(NotesTask);
             _questClassField = AccessTools.GetDeclaredFields(notesTaskType).Single(x => x.FieldType == typeof(QuestClass));
             _taskDescriptionField = AccessTools.GetDeclaredFields(notesTaskType).Single(x => x.FieldType == typeof(NotesTaskDescriptionShort));
+            _statusLabelField = AccessTools.Field(notesTaskType, "_statusLabel");
             _getColorMethod = AccessTools.GetDeclaredMethods(notesTaskType).Single(x => x.ReturnType == typeof(Color));
             _setColorMethod = AccessTools.GetDeclaredMethods(notesTaskType).Single(x => x.GetParameters().Length == 1 && x.GetParameters()[0].ParameterType == typeof(Color));
             _questListItemUpdateViewMethod = AccessTools.Method(typeof(QuestListItem), "UpdateView");
@@ -63,7 +71,8 @@ namespace DrakiaXYZ.QuestTracker
             // Player task list
             new TasksScreenShowPatch().Enable();
             new TasksScreenClosePatch().Enable();
-            new NotesTaskBackgroundPatch().Enable();
+            new NotesTaskStatusPatch().Enable();
+            new TasksScreenStatusComparePatch().Enable();
 
             // Vendor quest list
             new QuestsScreenShowPatch().Enable();
@@ -81,8 +90,8 @@ namespace DrakiaXYZ.QuestTracker
                     var quest = _questClassField.GetValue(notesTask) as QuestClass;
                     HandleQuestRightClick(quest);
 
-                    // Update the task background color
-                    UpdateTaskColor(notesTask);
+                    // Update the task status
+                    UpdateTaskStatus(notesTask);
                 }
             }
 
@@ -169,15 +178,36 @@ namespace DrakiaXYZ.QuestTracker
             return null;
         }
 
-        private void UpdateTaskColor(NotesTask notesTask)
+        /**
+         * Update the task "Status" column with the correct value
+         */
+        private void UpdateTaskStatus(NotesTask notesTask)
         {
-            var notesDescription = _taskDescriptionField.GetValue(notesTask) as NotesTaskDescriptionShort;
-            var color = (Color)_getColorMethod.Invoke(notesTask, new object[] { "default" });
-            if (notesDescription.transform.IsChildOf(notesTask.transform) && notesDescription.gameObject.activeSelf)
+            var quest = _questClassField.GetValue(notesTask) as QuestClass;
+            var statusLabel = _statusLabelField.GetValue(notesTask) as TextMeshProUGUI;
+
+            if (QuestsTracker.IsTracked(quest))
             {
-                color = (Color)_getColorMethod.Invoke(notesTask, new object[] { "selected" });
+                statusLabel.text = TrackedStatus;
+                statusLabel.color = TrackedColor;
+                return;
             }
-            _setColorMethod.Invoke(notesTask, new object[] { color });
+
+            switch (quest.QuestStatus)
+            {
+                case EQuestStatus.Started:
+                    statusLabel.text = "QuestStatusStarted".Localized(null);
+                    statusLabel.color = (Color)_getColorMethod.Invoke(notesTask, new object[] { "active_font" });
+                    break;
+                case EQuestStatus.AvailableForFinish:
+                    statusLabel.text = "QuestStatusSuccess".Localized(null);
+                    statusLabel.color = (Color)_getColorMethod.Invoke(notesTask, new object[] { "finished_font" });
+                    break;
+                case EQuestStatus.MarkedAsFailed:
+                    statusLabel.text = "QuestStatusFail".Localized(null);
+                    statusLabel.color = (Color)_getColorMethod.Invoke(notesTask, new object[] { "failed_font" });
+                    break;
+            }
         }
     }
 
@@ -297,8 +327,6 @@ namespace DrakiaXYZ.QuestTracker
      */
     class QuestsListItemUpdateViewPatch : ModulePatch
     {
-        private static Color _trackedColor = new Color(0, 72, 87);
-        private static string _trackedStatus = "Tracked!";
         protected override MethodBase GetTargetMethod()
         {
             return AccessTools.Method(typeof(QuestListItem), "UpdateView");
@@ -310,20 +338,18 @@ namespace DrakiaXYZ.QuestTracker
             var quest = __instance.Quest;
             if (QuestsTracker.IsTracked(quest))
             {
-                ____status.text = _trackedStatus;
-                ____status.color = _trackedColor;
+                ____status.text = QuestTrackerPlugin.TrackedStatus;
+                ____status.color = QuestTrackerPlugin.TrackedColor;
             }
         }
     }
 
     /**
-     * Set the background color of the first column for tracked quests
+     * Set the status text of tracked quests
      */
-    class NotesTaskBackgroundPatch : ModulePatch
+    class NotesTaskStatusPatch : ModulePatch
     {
         private static FieldInfo _questClassField;
-
-        private static Color _trackedColor = new Color(0, 72, 87);
 
         protected override MethodBase GetTargetMethod()
         {
@@ -334,12 +360,41 @@ namespace DrakiaXYZ.QuestTracker
         }
 
         [PatchPostfix]
-        public static void PatchPostfix(NotesTask __instance, List<Image> ____backgroundImages)
+        public static void PatchPostfix(NotesTask __instance, TextMeshProUGUI ____statusLabel)
         {
             var quest = _questClassField.GetValue(__instance) as QuestClass;
             if (QuestsTracker.IsTracked(quest))
             {
-                ____backgroundImages[0].color = _trackedColor;
+                ____statusLabel.text = QuestTrackerPlugin.TrackedStatus;
+                ____statusLabel.color = QuestTrackerPlugin.TrackedColor;
+            }
+        }
+    }
+
+    /**
+     * To have tracked quests at the top of the task list, override the TasksScreen.QuestStatusComparer Compare method
+     */
+    class TasksScreenStatusComparePatch : ModulePatch
+    {
+        protected override MethodBase GetTargetMethod()
+        {
+            Type questStatusComparerType = PatchConstants.EftTypes.First(x => x.Name == "QuestStatusComparer");
+
+            return AccessTools.Method(questStatusComparerType, "Compare");
+        }
+
+        [PatchPostfix]
+        public static void PatchPostfix(QuestClass x, QuestClass y, ref int __result)
+        {
+            bool leftTracked = QuestsTracker.IsTracked(x);
+            bool rightTracked = QuestsTracker.IsTracked(y);
+            if (leftTracked && !rightTracked)
+            {
+                __result = 1;
+            }
+            else if (!leftTracked && rightTracked)
+            {
+                __result = -1;
             }
         }
     }
