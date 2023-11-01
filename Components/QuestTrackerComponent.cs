@@ -7,6 +7,7 @@ using EFT;
 using EFT.Quests;
 using EFT.UI;
 using HarmonyLib;
+using JetBrains.Annotations;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -16,7 +17,7 @@ using UnityEngine;
 
 namespace DrakiaXYZ.QuestTracker.Components
 {
-    internal class QuestTrackerComponent : MonoBehaviour, IDisposable
+    internal class QuestTrackerComponent : MonoBehaviour
     {
         private QuestTrackerPanelComponent panel;
 
@@ -44,6 +45,8 @@ namespace DrakiaXYZ.QuestTracker.Components
 
         public void Awake()
         {
+            Logger.LogInfo("QuestTrackerComponent Awake");
+
             // Setup access to game objects
             gameWorld = Singleton<GameWorld>.Instance;
             botGame = Singleton<IBotGame>.Instance;
@@ -88,7 +91,6 @@ namespace DrakiaXYZ.QuestTracker.Components
 
                 if (quest.Template == null)
                 {
-                    Logger.LogDebug($"Quest template null {quest.Id}");
                     continue;
                 }
 
@@ -253,11 +255,11 @@ namespace DrakiaXYZ.QuestTracker.Components
             }
         }
 
-        public void Dispose()
+        public void OnDestroy()
         {
+            Logger.LogInfo("QuestTrackerComponent OnDestroy");
             DetachEvents();
             Destroy(panel);
-            Destroy(this);
         }
 
         private void AttachEvents()

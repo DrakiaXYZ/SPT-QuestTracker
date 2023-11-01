@@ -226,6 +226,9 @@ namespace DrakiaXYZ.QuestTracker
 
             QuestTrackerPanelComponent.QuestTrackerPanelPrefab = assets.Single(asset => asset.name == "QuestTrackerPanel") as GameObject;
             QuestTrackerPanelComponent.QuestEntryPrefab = assets.Single(asset => asset.name == "QuestEntry") as GameObject;
+
+            DontDestroyOnLoad(QuestTrackerPanelComponent.QuestTrackerPanelPrefab);
+            DontDestroyOnLoad(QuestTrackerPanelComponent.QuestEntryPrefab);
         }
     }
 

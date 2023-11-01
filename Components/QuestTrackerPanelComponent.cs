@@ -1,4 +1,5 @@
-﻿using DrakiaXYZ.QuestTracker.Helpers;
+﻿using BepInEx.Logging;
+using DrakiaXYZ.QuestTracker.Helpers;
 using EFT.Quests;
 using System;
 using System.Collections.Generic;
@@ -19,6 +20,8 @@ namespace DrakiaXYZ.QuestTracker.Components
         private StringBuilder _stringBuilderQuest = new StringBuilder();
         private StringBuilder _stringBuilderProgress = new StringBuilder();
 
+        protected ManualLogSource Logger;
+
         public bool Visible
         {
             get
@@ -31,8 +34,15 @@ namespace DrakiaXYZ.QuestTracker.Components
             }
         }
 
+        public QuestTrackerPanelComponent()
+        {
+            Logger = BepInEx.Logging.Logger.CreateLogSource(GetType().Name);
+        }
+
         public void Awake()
         {
+            Logger.LogInfo("QuestTrackerPanelComponent Awake");
+
             // Create the Panel prefab and add it to the parent object
             _panel = Instantiate(QuestTrackerPanelPrefab);
             _panel.transform.SetParent(transform);
@@ -229,6 +239,13 @@ namespace DrakiaXYZ.QuestTracker.Components
                 GameObject entry = Instantiate(QuestEntryPrefab);
                 entry.transform.SetParent(_panel.transform);
             }
+        }
+
+        private void OnDestroy()
+        {
+            Logger.LogInfo("QuestTrackerPanelComponent Destroy");
+            _panel.DestroyAllChildren();
+            Destroy(_panel);
         }
     }
 }
