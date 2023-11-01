@@ -38,10 +38,8 @@ namespace DrakiaXYZ.QuestTracker
         private EventSystem _eventSystem;
 
         private static FieldInfo _questClassField;
-        private static FieldInfo _taskDescriptionField;
         private static FieldInfo _statusLabelField;
         private static MethodInfo _getColorMethod;
-        private static MethodInfo _setColorMethod;
         private static MethodInfo _questListItemUpdateViewMethod;
 
         private void Awake()
@@ -59,10 +57,8 @@ namespace DrakiaXYZ.QuestTracker
 
             Type notesTaskType = typeof(NotesTask);
             _questClassField = AccessTools.GetDeclaredFields(notesTaskType).Single(x => x.FieldType == typeof(QuestClass));
-            _taskDescriptionField = AccessTools.GetDeclaredFields(notesTaskType).Single(x => x.FieldType == typeof(NotesTaskDescriptionShort));
             _statusLabelField = AccessTools.Field(notesTaskType, "_statusLabel");
             _getColorMethod = AccessTools.GetDeclaredMethods(notesTaskType).Single(x => x.ReturnType == typeof(Color));
-            _setColorMethod = AccessTools.GetDeclaredMethods(notesTaskType).Single(x => x.GetParameters().Length == 1 && x.GetParameters()[0].ParameterType == typeof(Color));
             _questListItemUpdateViewMethod = AccessTools.Method(typeof(QuestListItem), "UpdateView");
 
             new MainMenuControllerShowScreenPatch().Enable();
@@ -78,6 +74,9 @@ namespace DrakiaXYZ.QuestTracker
             new QuestsScreenShowPatch().Enable();
             new QuestsScreenClosePatch().Enable();
             new QuestsListItemUpdateViewPatch().Enable();
+
+            // Load UI bundle
+            LoadBundle();
         }
 
         public void Update()
@@ -208,6 +207,25 @@ namespace DrakiaXYZ.QuestTracker
                     statusLabel.color = (Color)_getColorMethod.Invoke(notesTask, new object[] { "failed_font" });
                     break;
             }
+        }
+        
+        private void LoadBundle()
+        {
+            var bundlePath = Path.Combine(PluginFolder, "questtrackerui.bundle");
+            var bundle = AssetBundle.LoadFromFile(bundlePath);
+            if (bundle == null)
+            {
+                throw new Exception($"Error loading bundle: {bundlePath}");
+            }
+
+            var assets = bundle.LoadAllAssets();
+            if (assets == null || assets.Length == 0)
+            {
+                throw new Exception($"Bundle did not contain assets: {bundlePath}");
+            }
+
+            QuestTrackerPanelComponent.QuestTrackerPanelPrefab = assets.Single(asset => asset.name == "QuestTrackerPanel") as GameObject;
+            QuestTrackerPanelComponent.QuestEntryPrefab = assets.Single(asset => asset.name == "QuestEntry") as GameObject;
         }
     }
 
