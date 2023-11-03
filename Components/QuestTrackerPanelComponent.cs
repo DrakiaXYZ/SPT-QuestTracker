@@ -48,7 +48,7 @@ namespace DrakiaXYZ.QuestTracker.Components
 
             // Create the Panel prefab, clear its children and add it to the parent object
             _panel = Instantiate(QuestTrackerPanelPrefab);
-            _panel.DestroyAllChildren();
+            Utils.DestroyAllChildren(_panel.transform);
             _panel.transform.SetParent(transform);
 
             _background = _panel.GetComponent<Image>();
@@ -133,7 +133,7 @@ namespace DrakiaXYZ.QuestTracker.Components
         public void SetWidth(int maxWidth)
         {
             // Force a rebuild of the layout so we get an accurate width
-            LayoutRebuilder.ForceRebuildLayoutImmediate(_layoutGroup.RectTransform());
+            LayoutRebuilder.ForceRebuildLayoutImmediate(Utils.RectTransform(_layoutGroup));
 
             if (_layoutGroup.preferredWidth > maxWidth)
             {
@@ -206,19 +206,21 @@ namespace DrakiaXYZ.QuestTracker.Components
 
         public void SetTransparency(float transparency)
         {
-            _background.color = _background.color.SetAlpha(transparency);
+            Color newColor = _background.color;
+            newColor.a = transparency;
+            _background.color = newColor;
         }
 
         public void SetAlignment(Settings.EAlignment alignment)
         {
             if (alignment == Settings.EAlignment.Left)
             {
-                _panel.RectTransform().pivot = new Vector2(0f, 0.5f);
+                Utils.RectTransform(_panel).pivot = new Vector2(0f, 0.5f);
                 _panel.transform.position = new Vector3(0, Screen.height / 2, 0);
             }
             else
             {
-                _panel.RectTransform().pivot = new Vector2(1f, 0.5f);
+                Utils.RectTransform(_panel).pivot = new Vector2(1f, 0.5f);
                 _panel.transform.position = new Vector3(Screen.width, Screen.height / 2, 0);
             }
         }
@@ -247,7 +249,7 @@ namespace DrakiaXYZ.QuestTracker.Components
                     // No divide by zero errors here
                     float current = quest.Progress.current;
                     float max = quest.Progress.absolute;
-                    if (max.ApproxEquals(0f))
+                    if (Utils.ApproxEquals(max, 0f))
                     {
                         questProgress = "<color=#00ff00ff>✓</color>";
                     }
@@ -279,6 +281,8 @@ namespace DrakiaXYZ.QuestTracker.Components
                 return objectiveIndex;
             }
 
+            var conditionHandlers = Utils.GetConditionHandlers(quest);
+
             foreach (var condition in quest.NecessaryConditions)
             {
                 bool isConditionDone = quest.IsConditionDone(condition);
@@ -297,11 +301,12 @@ namespace DrakiaXYZ.QuestTracker.Components
                 }
                 else
                 {
-                    var conditionHandler = quest.ConditionHandlers[condition];
-                    if (conditionHandler.HasGetter())
+                    var conditionHandler = conditionHandlers[condition];
+
+                    if (Utils.ConditionHasGetter(conditionHandler))
                     {
                         float max = condition.value;
-                        float current = Mathf.Min(conditionHandler.CurrentValue, max);
+                        float current = Mathf.Min(Utils.ConditionCurrentValue(conditionHandler), max);
 
                         if (Settings.ObjectivesAsPercent.Value)
                         {
@@ -414,7 +419,7 @@ namespace DrakiaXYZ.QuestTracker.Components
         private void OnDestroy()
         {
             Logger.LogInfo("QuestTrackerPanelComponent Destroy");
-            _panel.DestroyAllChildren();
+            Utils.DestroyAllChildren(_panel.transform);
             Destroy(_panel);
         }
     }

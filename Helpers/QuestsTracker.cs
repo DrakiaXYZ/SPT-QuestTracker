@@ -1,7 +1,6 @@
 ﻿using BepInEx.Logging;
 using EFT;
 using EFT.Quests;
-using HarmonyLib;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -111,7 +110,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
             // Check for any quests that are no longer trackable, and remove them
             int removedCount = _instance._trackedQuests.RemoveWhere(questId =>
             {
-                QuestClass quest = questController.Quests.GetQuest(questId);
+                QuestClass quest = Utils.GetQuest(questController, questId);
                 if (quest == null)
                 {
                     return true;

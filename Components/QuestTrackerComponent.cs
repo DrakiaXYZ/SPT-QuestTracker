@@ -7,12 +7,8 @@ using EFT;
 using EFT.Quests;
 using EFT.UI;
 using HarmonyLib;
-using JetBrains.Annotations;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
 using UnityEngine;
 
 namespace DrakiaXYZ.QuestTracker.Components
@@ -67,13 +63,13 @@ namespace DrakiaXYZ.QuestTracker.Components
             }
             
             questController = AccessTools.Field(typeof(Player), "_questController").GetValue(player) as QuestControllerClass;
-            if (questController == null || questController.Quests == null)
+            if (questController == null)
             {
-                throw new Exception("Error creating QuestTrackerComponent, questController or Quests was null");
+                throw new Exception("Error creating QuestTrackerComponent, questController was null");
             }
 
             // Add the panel to the BattleUiScreen
-            panel = Singleton<GameUI>.Instance.BattleUiScreen.GetOrAddComponent<QuestTrackerPanelComponent>();
+            panel = Utils.GetOrAddComponent<QuestTrackerPanelComponent>(Singleton<GameUI>.Instance.BattleUiScreen);
             panel.Visible = Settings.VisibleAtRaidStart.Value;
             if (panel.Visible && Settings.AutoHide.Value)
             {
@@ -100,7 +96,7 @@ namespace DrakiaXYZ.QuestTracker.Components
                     status == EQuestStatus.MarkedAsFailed) &&
                     quest.Template.LocationId == locationId)
                 {
-                    QuestClass questInstance = questController.Quests.GetQuest(quest.Id);
+                    QuestClass questInstance = Utils.GetQuest(questController, quest.Id);
                     if (questInstance == null)
                     {
                         Logger.LogWarning($"Quest instance null {quest.Id}");
@@ -186,7 +182,7 @@ namespace DrakiaXYZ.QuestTracker.Components
 
             foreach (var questId in QuestsTracker.GetTrackedQuests())
             {
-                QuestClass quest = questController.Quests.GetQuest(questId);
+                QuestClass quest = Utils.GetQuest(questController, questId);
                 if (quest == null)
                 {
                     Logger.LogDebug($"Skipping {questId} because it's not in quest controller");
@@ -287,7 +283,7 @@ namespace DrakiaXYZ.QuestTracker.Components
             if (Singleton<IBotGame>.Instantiated)
             {
                 var gameWorld = Singleton<GameWorld>.Instance;
-                gameWorld.GetOrAddComponent<QuestTrackerComponent>();
+                Utils.GetOrAddComponent<QuestTrackerComponent>(gameWorld);
             }
         }
 

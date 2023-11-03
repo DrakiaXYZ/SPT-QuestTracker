@@ -108,18 +108,16 @@
     <Compile Include="ConfigurationManagerAttributes.cs" />
     <Compile Include="Helpers\QuestsTracker.cs" />
     <Compile Include="Helpers\Settings.cs" />
+    <Compile Include="Helpers\Utils.cs" />
     <Compile Include="QuestTrackerPlugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="VersionChecker\TarkovVersion.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="VersionChecker\setbuild.ps1" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>copy "$(TargetPath)" "$(ProjectDir)\..\..\BepInEx\plugins\$(TargetName)\$(TargetFileName)"</PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
-    <PreBuildEvent>powershell.exe -ExecutionPolicy Bypass -NoProfile -NonInteractive -File $(ProjectDir)\VersionChecker\setbuild.ps1</PreBuildEvent>
+    <PreBuildEvent>
+    </PreBuildEvent>
   </PropertyGroup>
 </Project>

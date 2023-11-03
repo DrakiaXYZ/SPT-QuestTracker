@@ -3,7 +3,6 @@ using Aki.Reflection.Utils;
 using BepInEx;
 using DrakiaXYZ.QuestTracker.Components;
 using DrakiaXYZ.QuestTracker.Helpers;
-using DrakiaXYZ.QuestTracker.VersionChecker;
 using EFT;
 using EFT.Quests;
 using EFT.UI;
@@ -44,12 +43,8 @@ namespace DrakiaXYZ.QuestTracker
 
         private void Awake()
         {
-            if (!TarkovVersion.CheckEftVersion(Logger, Info, Config))
-            {
-                throw new Exception($"Invalid EFT Version");
-            }
-
             Settings.Init(Config);
+            Utils.Init();
             QuestsTracker.SetLogger(Logger);
             Directory.CreateDirectory(ConfigFolder);
 
@@ -195,15 +190,15 @@ namespace DrakiaXYZ.QuestTracker
             switch (quest.QuestStatus)
             {
                 case EQuestStatus.Started:
-                    statusLabel.text = "QuestStatusStarted".Localized(null);
+                    statusLabel.text = Utils.Localized("QuestStatusStarted");
                     statusLabel.color = (Color)_getColorMethod.Invoke(notesTask, new object[] { "active_font" });
                     break;
                 case EQuestStatus.AvailableForFinish:
-                    statusLabel.text = "QuestStatusSuccess".Localized(null);
+                    statusLabel.text = Utils.Localized("QuestStatusSuccess");
                     statusLabel.color = (Color)_getColorMethod.Invoke(notesTask, new object[] { "finished_font" });
                     break;
                 case EQuestStatus.MarkedAsFailed:
-                    statusLabel.text = "QuestStatusFail".Localized(null);
+                    statusLabel.text = Utils.Localized("QuestStatusFail");
                     statusLabel.color = (Color)_getColorMethod.Invoke(notesTask, new object[] { "failed_font" });
                     break;
             }
