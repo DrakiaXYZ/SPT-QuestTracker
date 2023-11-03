@@ -218,17 +218,22 @@ namespace DrakiaXYZ.QuestTracker
                 throw new Exception($"Error loading bundle: {bundlePath}");
             }
 
-            var assets = bundle.LoadAllAssets();
-            if (assets == null || assets.Length == 0)
+            QuestTrackerPanelComponent.QuestTrackerPanelPrefab = LoadAsset<GameObject>(bundle, "Assets/QuestTrackerPanel.prefab");
+            QuestTrackerPanelComponent.QuestEntryPrefab = LoadAsset<GameObject>(bundle, "Assets/QuestEntry.prefab");
+            QuestTrackerPanelComponent.QuestObjectivesPrefab = LoadAsset<GameObject>(bundle, "Assets/QuestObjectives.prefab");
+        }
+
+        private T LoadAsset<T>(AssetBundle bundle, string assetPath) where T : UnityEngine.Object
+        {
+            T asset = bundle.LoadAsset<T>(assetPath);
+
+            if (asset == null)
             {
-                throw new Exception($"Bundle did not contain assets: {bundlePath}");
+                throw new Exception($"Error loading asset {assetPath}");
             }
 
-            QuestTrackerPanelComponent.QuestTrackerPanelPrefab = assets.Single(asset => asset.name == "QuestTrackerPanel") as GameObject;
-            QuestTrackerPanelComponent.QuestEntryPrefab = assets.Single(asset => asset.name == "QuestEntry") as GameObject;
-
-            DontDestroyOnLoad(QuestTrackerPanelComponent.QuestTrackerPanelPrefab);
-            DontDestroyOnLoad(QuestTrackerPanelComponent.QuestEntryPrefab);
+            DontDestroyOnLoad(asset);
+            return asset;
         }
     }
 

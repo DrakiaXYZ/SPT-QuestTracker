@@ -121,6 +121,12 @@ namespace DrakiaXYZ.QuestTracker.Components
         {
             SettingChangedEventArgs e = (SettingChangedEventArgs)args;
 
+            if (e.ChangedSetting.Definition.Section == Settings.DisplaySectionTitle)
+            {
+                GuiSettingsChanged(sender, args);
+                return;
+            }
+
             // If an AutoHide setting was changed, update the hide time
             if (e.ChangedSetting == Settings.AutoHide || e.ChangedSetting == Settings.AutoHideTimer)
             {
@@ -139,9 +145,39 @@ namespace DrakiaXYZ.QuestTracker.Components
             CacheQuests();
         }
 
-        private void GuiSettingsChanged(object sender, EventArgs e)
+        private void GuiSettingsChanged(object sender, EventArgs args)
         {
-            panel.SetFontSize(Settings.MainFontSize.Value);
+            SettingChangedEventArgs e = (SettingChangedEventArgs)args;
+
+            if (e.ChangedSetting == Settings.MainFontSize)
+            {
+                panel.SetMainFontSize(Settings.MainFontSize.Value);
+            }
+
+            if (e.ChangedSetting == Settings.SubFontSize)
+            {
+                panel.SetSubFontSize(Settings.SubFontSize.Value);
+            }
+
+            if (e.ChangedSetting == Settings.Transparency)
+            {
+                panel.SetTransparency(Settings.Transparency.Value);
+            }
+
+            if (e.ChangedSetting == Settings.Alignment)
+            {
+                panel.SetAlignment(Settings.Alignment.Value);
+            }
+
+            if (e.ChangedSetting == Settings.CoolKidsClub)
+            {
+                panel.SetFont(Settings.CoolKidsClub.Value);
+            }
+
+            if (e.ChangedSetting == Settings.MaxWidth)
+            {
+                panel.SetWidth(Settings.MaxWidth.Value);
+            }
         }
 
         private void CacheQuests()
@@ -264,16 +300,7 @@ namespace DrakiaXYZ.QuestTracker.Components
 
         private void AttachEvents()
         {
-            Settings.MainFontSize.SettingChanged += GuiSettingsChanged;
-
-            Settings.SubFontSize.SettingChanged += SettingsChanged;
-            Settings.IncludeMapQuests.SettingChanged += SettingsChanged;
-            Settings.ExcludeOtherMapQuests.SettingChanged += SettingsChanged;
-            Settings.AutoHide.SettingChanged += SettingsChanged;
-            Settings.ShowOnObjective.SettingChanged += SettingsChanged;
-            Settings.ProgressAsPercent.SettingChanged += SettingsChanged;
-            Settings.ObjectivesAsPercent.SettingChanged += SettingsChanged;
-            Settings.ShowObjectives.SettingChanged += SettingsChanged;
+            Settings.Config.SettingChanged += SettingsChanged;
 
             QuestsTracker.QuestTracked += QuestTracked;
             QuestsTracker.QuestUntracked += QuestUntracked;
@@ -281,16 +308,7 @@ namespace DrakiaXYZ.QuestTracker.Components
 
         private void DetachEvents()
         {
-            Settings.MainFontSize.SettingChanged -= GuiSettingsChanged;
-
-            Settings.SubFontSize.SettingChanged -= SettingsChanged;
-            Settings.IncludeMapQuests.SettingChanged -= SettingsChanged;
-            Settings.ExcludeOtherMapQuests.SettingChanged -= SettingsChanged;
-            Settings.AutoHide.SettingChanged -= SettingsChanged;
-            Settings.ShowOnObjective.SettingChanged -= SettingsChanged;
-            Settings.ProgressAsPercent.SettingChanged -= SettingsChanged;
-            Settings.ObjectivesAsPercent.SettingChanged -= SettingsChanged;
-            Settings.ShowObjectives.SettingChanged -= SettingsChanged;
+            Settings.Config.SettingChanged -= SettingsChanged;
 
             QuestsTracker.QuestTracked -= QuestTracked;
             QuestsTracker.QuestUntracked -= QuestUntracked;
