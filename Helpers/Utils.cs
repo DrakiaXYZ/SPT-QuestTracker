@@ -5,6 +5,7 @@ using System.Collections;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
+using QuestClass = GClass1249;
 
 namespace DrakiaXYZ.QuestTracker.Helpers
 {
@@ -12,13 +13,13 @@ namespace DrakiaXYZ.QuestTracker.Helpers
     {
         private static MethodInfo _stringLocalizedMethod;
 
-        private static FieldInfo _questControllerQuestsField;
+        private static PropertyInfo _questControllerQuestsProperty;
         private static MethodInfo _getQuestMethod;
 
         private static MethodInfo _conditionHandlerHasGetterMethod = null;
         private static PropertyInfo _conditionHandlerCurrentValueProperty = null;
 
-        private static FieldInfo _questConditionHandlersField;
+        private static PropertyInfo _questConditionHandlersProperty;
 
         public static void Init()
         {
@@ -27,10 +28,10 @@ namespace DrakiaXYZ.QuestTracker.Helpers
             Type stringLocalizeClass = PatchConstants.EftTypes.First(x => x.GetMethod("Localized", localizedParams) != null);
             _stringLocalizedMethod = AccessTools.Method(stringLocalizeClass, "Localized", localizedParams);
 
-            _questControllerQuestsField = AccessTools.Field(typeof(QuestControllerClass), "Quests");
-            _getQuestMethod = AccessTools.Method(_questControllerQuestsField.FieldType, "GetQuest", new Type[] { typeof(string) });
+            _questControllerQuestsProperty = AccessTools.Property(typeof(AbstractQuestControllerClass), "Quests");
+            _getQuestMethod = AccessTools.Method(_questControllerQuestsProperty.PropertyType, "GetConditional", new Type[] { typeof(string) });
 
-            _questConditionHandlersField = AccessTools.Field(typeof(QuestClass), "ConditionHandlers");
+            _questConditionHandlersProperty = AccessTools.Property(typeof(QuestClass), "ProgressCheckers");
         }
 
         public static string Localized(string input)
@@ -53,9 +54,9 @@ namespace DrakiaXYZ.QuestTracker.Helpers
             return component.transform as RectTransform;
         }
 
-        public static QuestClass GetQuest(QuestControllerClass questController, string questId)
+        public static QuestClass GetQuest(AbstractQuestControllerClass questController, string questId)
         {
-            object quests = _questControllerQuestsField.GetValue(questController);
+            object quests = _questControllerQuestsProperty.GetValue(questController);
             return _getQuestMethod.Invoke(quests, new object[] { questId }) as QuestClass;
         }
 
@@ -81,7 +82,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
 
         public static IDictionary GetConditionHandlers(QuestClass quest)
         {
-            return _questConditionHandlersField.GetValue(quest) as IDictionary;
+            return _questConditionHandlersProperty.GetValue(quest) as IDictionary;
         }
 
         public static void DestroyAllChildren(Transform parent)

@@ -10,6 +10,7 @@ using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using QuestClass = GClass1249;
 
 namespace DrakiaXYZ.QuestTracker.Components
 {
@@ -26,7 +27,7 @@ namespace DrakiaXYZ.QuestTracker.Components
         private GameWorld gameWorld;
         private Player player;
         private IBotGame botGame;
-        private QuestControllerClass questController;
+        private AbstractQuestControllerClass questController;
 
         private List<QuestClass> mapQuests = new List<QuestClass>();
         private Dictionary<string, QuestClass> trackedQuests = new Dictionary<string, QuestClass>();
@@ -62,7 +63,7 @@ namespace DrakiaXYZ.QuestTracker.Components
                 throw new Exception("Error creating QuestTrackerComponent, commonUi was null");
             }
             
-            questController = AccessTools.Field(typeof(Player), "_questController").GetValue(player) as QuestControllerClass;
+            questController = AccessTools.Field(typeof(Player), "_questController").GetValue(player) as AbstractQuestControllerClass;
             if (questController == null)
             {
                 throw new Exception("Error creating QuestTrackerComponent, questController was null");

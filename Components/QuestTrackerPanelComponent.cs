@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
+using QuestClass = GClass1249;
 
 namespace DrakiaXYZ.QuestTracker.Components
 {

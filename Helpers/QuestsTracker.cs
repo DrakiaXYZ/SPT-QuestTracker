@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using QuestClass = GClass1249;
 
 namespace DrakiaXYZ.QuestTracker.Helpers
 {
@@ -86,7 +87,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
             streamWriter.Close();
         }
 
-        public static bool Load(QuestControllerClass questController)
+        public static bool Load(AbstractQuestControllerClass questController)
         {
             _profile = questController.Profile;
 

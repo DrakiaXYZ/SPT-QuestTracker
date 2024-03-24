@@ -16,6 +16,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using QuestClass = GClass1249;
 
 namespace DrakiaXYZ.QuestTracker
 {
@@ -243,7 +244,7 @@ namespace DrakiaXYZ.QuestTracker
         private static bool _questsLoaded = false;
         protected override MethodBase GetTargetMethod()
         {
-            _questControllerField = AccessTools.GetDeclaredFields(typeof(MainMenuController)).FirstOrDefault(x => typeof(QuestControllerClass).IsAssignableFrom(x.FieldType));
+            _questControllerField = AccessTools.GetDeclaredFields(typeof(MainMenuController)).FirstOrDefault(x => typeof(AbstractQuestControllerClass).IsAssignableFrom(x.FieldType));
 
             return AccessTools.Method(typeof(MainMenuController), "ShowScreen");
         }
@@ -257,7 +258,7 @@ namespace DrakiaXYZ.QuestTracker
             Logger.LogDebug("MenuScreenShowPatch Postfix");
 
             // Load list of tracked quests
-            QuestControllerClass questController = _questControllerField.GetValue(__instance) as QuestControllerClass;
+            AbstractQuestControllerClass questController = _questControllerField.GetValue(__instance) as AbstractQuestControllerClass;
             if (!QuestsTracker.Load(questController))
             {
                 Logger.LogError("Error, unable to load tracked quests");
