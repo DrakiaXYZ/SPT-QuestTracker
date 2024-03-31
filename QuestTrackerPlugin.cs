@@ -20,7 +20,8 @@ using QuestClass = GClass1249;
 
 namespace DrakiaXYZ.QuestTracker
 {
-    [BepInPlugin("xyz.drakia.questtracker", "DrakiaXYZ-QuestTracker", "1.1.0")]
+    [BepInPlugin("xyz.drakia.questtracker", "DrakiaXYZ-QuestTracker", "1.2.0")]
+    [BepInDependency("com.spt-aki.core", "3.8.0")]
     // We have a soft dependency on TaskListFixes so that our sort will run after its sort
     [BepInDependency("xyz.drakia.tasklistfixes", BepInDependency.DependencyFlags.SoftDependency)]
     public class QuestTrackerPlugin : BaseUnityPlugin
