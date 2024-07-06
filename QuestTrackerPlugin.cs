@@ -1,5 +1,5 @@
-﻿using Aki.Reflection.Patching;
-using Aki.Reflection.Utils;
+﻿using SPT.Reflection.Patching;
+using SPT.Reflection.Utils;
 using BepInEx;
 using DrakiaXYZ.QuestTracker.Components;
 using DrakiaXYZ.QuestTracker.Helpers;
@@ -16,12 +16,11 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using QuestClass = GClass1249;
 
 namespace DrakiaXYZ.QuestTracker
 {
-    [BepInPlugin("xyz.drakia.questtracker", "DrakiaXYZ-QuestTracker", "1.2.0")]
-    [BepInDependency("com.spt-aki.core", "3.8.0")]
+    [BepInPlugin("xyz.drakia.questtracker", "DrakiaXYZ-QuestTracker", "1.3.0")]
+    [BepInDependency("com.SPT.core", "3.9.0")]
     // We have a soft dependency on TaskListFixes so that our sort will run after its sort
     [BepInDependency("xyz.drakia.tasklistfixes", BepInDependency.DependencyFlags.SoftDependency)]
     public class QuestTrackerPlugin : BaseUnityPlugin

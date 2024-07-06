@@ -1,11 +1,10 @@
-﻿using Aki.Reflection.Utils;
+﻿using SPT.Reflection.Utils;
 using HarmonyLib;
 using System;
 using System.Collections;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
-using QuestClass = GClass1249;
 
 namespace DrakiaXYZ.QuestTracker.Helpers
 {

@@ -5,7 +5,6 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using QuestClass = GClass1249;
 
 namespace DrakiaXYZ.QuestTracker.Helpers
 {

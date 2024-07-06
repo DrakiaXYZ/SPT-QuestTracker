@@ -1,4 +1,4 @@
-﻿using Aki.Reflection.Utils;
+﻿using SPT.Reflection.Utils;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using Comfort.Common;
@@ -10,7 +10,6 @@ using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using QuestClass = GClass1249;
 
 namespace DrakiaXYZ.QuestTracker.Components
 {
@@ -70,7 +69,7 @@ namespace DrakiaXYZ.QuestTracker.Components
             }
 
             // Add the panel to the BattleUiScreen
-            panel = Utils.GetOrAddComponent<QuestTrackerPanelComponent>(Singleton<GameUI>.Instance.BattleUiScreen);
+            panel = Utils.GetOrAddComponent<QuestTrackerPanelComponent>(Singleton<CommonUI>.Instance.EftBattleUIScreen);
             panel.Visible = Settings.VisibleAtRaidStart.Value;
             if (panel.Visible && Settings.AutoHide.Value)
             {
