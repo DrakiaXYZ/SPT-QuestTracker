@@ -19,8 +19,8 @@ using UnityEngine.UI;
 
 namespace DrakiaXYZ.QuestTracker
 {
-    [BepInPlugin("xyz.drakia.questtracker", "DrakiaXYZ-QuestTracker", "1.3.0")]
-    [BepInDependency("com.SPT.core", "3.9.0")]
+    [BepInPlugin("xyz.drakia.questtracker", "DrakiaXYZ-QuestTracker", "1.4.0")]
+    [BepInDependency("com.SPT.core", "3.10.0")]
     // We have a soft dependency on TaskListFixes so that our sort will run after its sort
     [BepInDependency("xyz.drakia.tasklistfixes", BepInDependency.DependencyFlags.SoftDependency)]
     public class QuestTrackerPlugin : BaseUnityPlugin
@@ -394,15 +394,13 @@ namespace DrakiaXYZ.QuestTracker
     }
 
     /**
-     * To have tracked quests at the top of the task list, override the TasksScreen.QuestStatusComparer Compare method
+     * To have tracked quests at the top of the task list, override the status comparer class Compare method
      */
     class TasksScreenStatusComparePatch : ModulePatch
     {
         protected override MethodBase GetTargetMethod()
         {
-            Type questStatusComparerType = PatchConstants.EftTypes.First(x => x.Name == "QuestStatusComparer");
-
-            return AccessTools.Method(questStatusComparerType, "Compare");
+            return AccessTools.Method(typeof(GClass3443), nameof(GClass3443.Compare));
         }
 
         [PatchPostfix]
