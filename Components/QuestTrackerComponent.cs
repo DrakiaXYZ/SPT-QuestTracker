@@ -25,7 +25,7 @@ namespace DrakiaXYZ.QuestTracker.Components
 
         private GameWorld gameWorld;
         private Player player;
-        private IBotGame botGame;
+        private AbstractGame abstractGame;
         private AbstractQuestControllerClass questController;
 
         private List<QuestClass> mapQuests = new List<QuestClass>();
@@ -45,11 +45,11 @@ namespace DrakiaXYZ.QuestTracker.Components
 
             // Setup access to game objects
             gameWorld = Singleton<GameWorld>.Instance;
-            botGame = Singleton<IBotGame>.Instance;
+            abstractGame = Singleton<AbstractGame>.Instance;
             player = gameWorld?.MainPlayer;
             commonUi = MonoBehaviourSingleton<CommonUI>.Instance;
 
-            if (gameWorld == null || botGame == null || player == null)
+            if (gameWorld == null || abstractGame == null || player == null)
             {
                 throw new Exception("Error creating QuestTrackerComponent, gameWorld, botGame or player was null");
             }
@@ -80,7 +80,7 @@ namespace DrakiaXYZ.QuestTracker.Components
 
             // Add any current map quests
             var localGameBaseType = PatchConstants.LocalGameType.BaseType;
-            locationId = AccessTools.Property(localGameBaseType, "LocationObjectId").GetValue(botGame) as string;
+            locationId = AccessTools.Property(localGameBaseType, "LocationObjectId").GetValue(abstractGame) as string;
             foreach (var quest in player.Profile.QuestsData)
             {
                 if (quest == null) continue;
@@ -280,7 +280,7 @@ namespace DrakiaXYZ.QuestTracker.Components
 
         public static void Enable()
         {
-            if (Singleton<IBotGame>.Instantiated)
+            if (Singleton<AbstractGame>.Instantiated)
             {
                 var gameWorld = Singleton<GameWorld>.Instance;
                 Utils.GetOrAddComponent<QuestTrackerComponent>(gameWorld);

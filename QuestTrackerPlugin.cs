@@ -19,10 +19,8 @@ using UnityEngine.UI;
 
 namespace DrakiaXYZ.QuestTracker
 {
-    [BepInPlugin("xyz.drakia.questtracker", "DrakiaXYZ-QuestTracker", "1.4.0")]
+    [BepInPlugin("xyz.drakia.questtracker", "DrakiaXYZ-QuestTracker", "1.4.1")]
     [BepInDependency("com.SPT.core", "3.10.0")]
-    // We have a soft dependency on TaskListFixes so that our sort will run after its sort
-    [BepInDependency("xyz.drakia.tasklistfixes", BepInDependency.DependencyFlags.SoftDependency)]
     public class QuestTrackerPlugin : BaseUnityPlugin
     {
         public static string PluginFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
