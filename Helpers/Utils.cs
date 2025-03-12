@@ -38,7 +38,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
             return (string)_stringLocalizedMethod.Invoke(null, new object[] { input, null });
         }
 
-        public static bool ApproxEquals(float value, float value2)
+        public static bool ApproxEquals(double value, double value2)
         {
             return Math.Abs(value - value2) < float.Epsilon;
         }
@@ -69,14 +69,14 @@ namespace DrakiaXYZ.QuestTracker.Helpers
             return (bool)_conditionHandlerHasGetterMethod.Invoke(conditionHandler, null);
         }
 
-        public static float ConditionCurrentValue(object conditionHandler)
+        public static double ConditionCurrentValue(object conditionHandler)
         {
             if (_conditionHandlerCurrentValueProperty == null)
             {
                 _conditionHandlerCurrentValueProperty = AccessTools.Property(conditionHandler.GetType(), "CurrentValue");
             }
 
-            return (float)_conditionHandlerCurrentValueProperty.GetValue(conditionHandler);
+            return (double)_conditionHandlerCurrentValueProperty.GetValue(conditionHandler);
         }
 
         public static IDictionary GetConditionHandlers(QuestClass quest)

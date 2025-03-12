@@ -17,10 +17,12 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
+using QuestStatusComparerClass = GClass3509;
+
 namespace DrakiaXYZ.QuestTracker
 {
-    [BepInPlugin("xyz.drakia.questtracker", "DrakiaXYZ-QuestTracker", "1.4.1")]
-    [BepInDependency("com.SPT.core", "3.10.0")]
+    [BepInPlugin("xyz.drakia.questtracker", "DrakiaXYZ-QuestTracker", "1.5.0")]
+    [BepInDependency("com.SPT.core", "3.11.0")]
     public class QuestTrackerPlugin : BaseUnityPlugin
     {
         public static string PluginFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
@@ -242,13 +244,13 @@ namespace DrakiaXYZ.QuestTracker
         private static bool _questsLoaded = false;
         protected override MethodBase GetTargetMethod()
         {
-            _questControllerField = AccessTools.GetDeclaredFields(typeof(MainMenuController)).FirstOrDefault(x => typeof(AbstractQuestControllerClass).IsAssignableFrom(x.FieldType));
+            _questControllerField = AccessTools.GetDeclaredFields(typeof(MainMenuControllerClass)).FirstOrDefault(x => typeof(AbstractQuestControllerClass).IsAssignableFrom(x.FieldType));
 
-            return AccessTools.Method(typeof(MainMenuController), "ShowScreen");
+            return AccessTools.Method(typeof(MainMenuControllerClass), "ShowScreen");
         }
 
         [PatchPostfix]
-        private static void PatchPostfix(MainMenuController __instance)
+        private static void PatchPostfix(MainMenuControllerClass __instance)
         {
             if (_questsLoaded) return;
             _questsLoaded = true;
@@ -398,7 +400,7 @@ namespace DrakiaXYZ.QuestTracker
     {
         protected override MethodBase GetTargetMethod()
         {
-            return AccessTools.Method(typeof(GClass3443), nameof(GClass3443.Compare));
+            return AccessTools.Method(typeof(QuestStatusComparerClass), nameof(QuestStatusComparerClass.Compare));
         }
 
         [PatchPostfix]

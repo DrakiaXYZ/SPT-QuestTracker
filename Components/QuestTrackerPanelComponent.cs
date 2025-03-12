@@ -247,8 +247,8 @@ namespace DrakiaXYZ.QuestTracker.Components
                     break;
                 default:
                     // No divide by zero errors here
-                    float current = quest.Progress.current;
-                    float max = quest.Progress.absolute;
+                    double current = quest.Progress.current;
+                    double max = quest.Progress.absolute;
                     if (Utils.ApproxEquals(max, 0f))
                     {
                         questProgress = "<color=#00ff00ff>✓</color>";
@@ -257,7 +257,7 @@ namespace DrakiaXYZ.QuestTracker.Components
                     {
                         if (Settings.ProgressAsPercent.Value)
                         {
-                            questProgress = $"{Mathf.FloorToInt((current / max) * 100)}%";
+                            questProgress = $"{Mathf.FloorToInt((float)(current / max) * 100)}%";
                         }
                         else
                         {
@@ -306,7 +306,7 @@ namespace DrakiaXYZ.QuestTracker.Components
                     if (Utils.ConditionHasGetter(conditionHandler))
                     {
                         float max = condition.value;
-                        float current = Mathf.Min(Utils.ConditionCurrentValue(conditionHandler), max);
+                        float current = Mathf.Min((float)Utils.ConditionCurrentValue(conditionHandler), max);
 
                         if (Settings.ObjectivesAsPercent.Value)
                         {
