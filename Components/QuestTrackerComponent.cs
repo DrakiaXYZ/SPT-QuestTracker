@@ -94,7 +94,7 @@ namespace DrakiaXYZ.QuestTracker.Components
                 if ((status == EQuestStatus.Started ||
                     status == EQuestStatus.AvailableForFinish ||
                     status == EQuestStatus.MarkedAsFailed) &&
-                    quest.Template.LocationId == locationId)
+                    IsSameMap(quest.Template.LocationId, locationId))
                 {
                     QuestClass questInstance = Utils.GetQuest(questController, quest.Id);
                     if (questInstance == null)
@@ -111,6 +111,33 @@ namespace DrakiaXYZ.QuestTracker.Components
 
             // Store the current hash so we don't treat startup as an objective change
             HaveQuestsChanged();
+        }
+
+        private bool IsSameMap(string questLocationId, string mapLocationId)
+        {
+            // Exact match, obviously
+            if (questLocationId == mapLocationId)
+            {
+                return true;
+            }
+
+            // Include factory4_night for factory4_day quests, but not the other way around
+            const string factory4_day = "55f2d3fd4bdc2d5f408b4567";
+            const string factory4_night = "59fc81d786f774390775787e";
+            if (questLocationId == factory4_day && mapLocationId == factory4_night)
+            {
+                return true;
+            }
+
+            // Include Sandbox_high for Sandbox quests, but not the other way around
+            const string sandbox = "653e6760052c01c1c805532f";
+            const string sandbox_high = "65b8d6f5cdde2479cb2a3125";
+            if (questLocationId == sandbox && mapLocationId == sandbox_high)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         private void SettingsChanged(object sender, EventArgs args)
