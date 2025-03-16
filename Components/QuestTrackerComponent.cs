@@ -218,7 +218,8 @@ namespace DrakiaXYZ.QuestTracker.Components
 
                 if (!Settings.ExcludeOtherMapQuests.Value
                     || quest.Template.LocationId == locationId
-                    || quest.Template.LocationId.ToLower() == "any")
+                    || quest.Template.LocationId.ToLower() == "any"
+                    || quest.Template.LocationId.ToLower() == "marathon")
                 {
                     trackedQuests.Add(questId, quest);
                 }
