@@ -29,7 +29,7 @@ namespace DrakiaXYZ.QuestTracker.Components
         private AbstractQuestControllerClass questController;
 
         private List<QuestClass> mapQuests = new List<QuestClass>();
-        private Dictionary<string, QuestClass> trackedQuests = new Dictionary<string, QuestClass>();
+        private Dictionary<string, Tuple<QuestClass, TrackedQuestData>> trackedQuests = new Dictionary<string, Tuple<QuestClass, TrackedQuestData>>();
         private CommonUI commonUi;
 
         protected ManualLogSource Logger;
@@ -41,7 +41,9 @@ namespace DrakiaXYZ.QuestTracker.Components
 
         public void Awake()
         {
+#if DEBUG
             Logger.LogInfo("QuestTrackerComponent Awake");
+#endif
 
             // Setup access to game objects
             gameWorld = Singleton<GameWorld>.Instance;
@@ -207,12 +209,18 @@ namespace DrakiaXYZ.QuestTracker.Components
         {
             trackedQuests.Clear();
 
-            foreach (var questId in QuestsTracker.GetTrackedQuests())
+            foreach (var trackedQuest in QuestsTracker.GetTrackedQuests())
             {
+                // Skip any quest that's not actually tracked
+                if (!trackedQuest.Value.Tracked) continue;
+
+                string questId = trackedQuest.Key;
                 QuestClass quest = Utils.GetQuest(questController, questId);
                 if (quest == null)
                 {
+#if DEBUG
                     Logger.LogDebug($"Skipping {questId} because it's not in quest controller");
+#endif
                     continue;
                 }
 
@@ -221,7 +229,7 @@ namespace DrakiaXYZ.QuestTracker.Components
                     || quest.Template.LocationId.ToLower() == "any"
                     || quest.Template.LocationId.ToLower() == "marathon")
                 {
-                    trackedQuests.Add(questId, quest);
+                    trackedQuests.Add(questId, new Tuple<QuestClass, TrackedQuestData>(quest, trackedQuest.Value));
                 }
             }
 
@@ -230,12 +238,7 @@ namespace DrakiaXYZ.QuestTracker.Components
             panel.SetQuests(trackedQuests, mapQuests);
         }
 
-        private void QuestTracked(object sender, QuestClass quest)
-        {
-            CacheQuests();
-        }
-
-        private void QuestUntracked(object sender, QuestClass quest)
+        private void RebuildCache(object sender, object el)
         {
             CacheQuests();
         }
@@ -285,8 +288,9 @@ namespace DrakiaXYZ.QuestTracker.Components
             int questsHash = 17;
             foreach (var quest in trackedQuests.Values)
             {
-                questsHash = questsHash * 31 + quest.Id.GetHashCode();
-                questsHash = questsHash * 31 + quest.Progress.GetHashCode();
+                questsHash = questsHash * 31 + quest.Item1.Id.GetHashCode();
+                questsHash = questsHash * 31 + quest.Item1.Progress.GetHashCode();
+                questsHash = questsHash * 31 + quest.Item2.GetHashCode();
             }
 
             if (Settings.IncludeMapQuests.Value)
@@ -317,7 +321,9 @@ namespace DrakiaXYZ.QuestTracker.Components
 
         public void OnDestroy()
         {
+#if DEBUG
             Logger.LogInfo("QuestTrackerComponent OnDestroy");
+#endif
             DetachEvents();
             Destroy(panel);
         }
@@ -326,16 +332,20 @@ namespace DrakiaXYZ.QuestTracker.Components
         {
             Settings.Config.SettingChanged += SettingsChanged;
 
-            QuestsTracker.QuestTracked += QuestTracked;
-            QuestsTracker.QuestUntracked += QuestUntracked;
+            QuestsTracker.QuestTracked += RebuildCache;
+            QuestsTracker.QuestUntracked += RebuildCache;
+            QuestsTracker.ConditionTracked += RebuildCache;
+            QuestsTracker.ConditionUntracked += RebuildCache;
         }
 
         private void DetachEvents()
         {
             Settings.Config.SettingChanged -= SettingsChanged;
 
-            QuestsTracker.QuestTracked -= QuestTracked;
-            QuestsTracker.QuestUntracked -= QuestUntracked;
+            QuestsTracker.QuestTracked -= RebuildCache;
+            QuestsTracker.QuestUntracked -= RebuildCache;
+            QuestsTracker.ConditionTracked -= RebuildCache;
+            QuestsTracker.ConditionUntracked -= RebuildCache;
         }
 
         /**

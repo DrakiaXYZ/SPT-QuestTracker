@@ -21,7 +21,7 @@ using QuestStatusComparerClass = GClass3509;
 
 namespace DrakiaXYZ.QuestTracker
 {
-    [BepInPlugin("xyz.drakia.questtracker", "DrakiaXYZ-QuestTracker", "1.5.0")]
+    [BepInPlugin("xyz.drakia.questtracker", "DrakiaXYZ-QuestTracker", "1.5.1")]
     [BepInDependency("com.SPT.core", "3.11.0")]
     public class QuestTrackerPlugin : BaseUnityPlugin
     {
@@ -32,15 +32,22 @@ namespace DrakiaXYZ.QuestTracker
         public static GraphicRaycaster[] GraphicsRaycasters;
 
         public static Color TrackedColor = new Color(0, 72, 87);
+        public static Color TrackedConditionColor = new Color(0, 72, 87);
         public static string TrackedStatus = "Tracked!";
+        public static string ConditionTracked = "(Tracked!)";
 
         private List<RaycastResult> _hits = new List<RaycastResult>();
         private EventSystem _eventSystem;
 
-        private static FieldInfo _questClassField;
+        private static FieldInfo _taskQuestClassField;
         private static FieldInfo _statusLabelField;
         private static MethodInfo _getColorMethod;
         private static MethodInfo _questListItemUpdateViewMethod;
+
+        private static FieldInfo _objectiveQuestClassField;
+        private static FieldInfo _objectiveConditionField;
+        private static FieldInfo _descriptionField;
+        private static FieldInfo _questListSelectedField;
 
         private void Awake()
         {
@@ -52,10 +59,15 @@ namespace DrakiaXYZ.QuestTracker
             _eventSystem = FindObjectOfType<EventSystem>();
 
             Type notesTaskType = typeof(NotesTask);
-            _questClassField = AccessTools.GetDeclaredFields(notesTaskType).Single(x => x.FieldType == typeof(QuestClass));
+            _taskQuestClassField = AccessTools.GetDeclaredFields(notesTaskType).Single(x => x.FieldType == typeof(QuestClass));
             _statusLabelField = AccessTools.Field(notesTaskType, "_statusLabel");
             _getColorMethod = AccessTools.GetDeclaredMethods(notesTaskType).Single(x => x.ReturnType == typeof(Color));
             _questListItemUpdateViewMethod = AccessTools.Method(typeof(QuestListItem), "UpdateView");
+
+            _objectiveQuestClassField = AccessTools.Field(typeof(QuestObjectiveView), "questClass");
+            _objectiveConditionField = AccessTools.Field(typeof(QuestObjectiveView), "Condition");
+            _descriptionField = AccessTools.Field(typeof(QuestObjectiveView), "_description");
+            _questListSelectedField = AccessTools.Field(typeof(QuestsListView), "_questListItemSelected");
 
             new MainMenuControllerShowScreenPatch().Enable();
             new NewGamePatch().Enable();
@@ -71,35 +83,97 @@ namespace DrakiaXYZ.QuestTracker
             new QuestsScreenClosePatch().Enable();
             new QuestsListItemUpdateViewPatch().Enable();
 
+            // Condition tracking
+            new QuestObjectiveViewShowPatch().Enable();
+
             // Load UI bundle
             LoadBundle();
         }
 
         public void Update()
         {
+            // Character task list
             if (TasksScreenActive && Input.GetMouseButtonDown(1))
             {
-                NotesTask notesTask = GetNotesTaskUnderMouse();
+                QuestObjectiveView questObjective = GetObjectUnderMouse<QuestObjectiveView>();
+                if (questObjective != null)
+                {
+                    var quest = _objectiveQuestClassField.GetValue(questObjective) as QuestClass;
+                    var condition = _objectiveConditionField.GetValue(questObjective) as Condition;
+
+                    HandleConditionRightClick(quest, condition);
+                    UpdateConditionDescription(questObjective, quest, condition);
+
+                    // Find the parent NotesTask and update the status if necessary
+                    NotesTask conditionNotesTask = questObjective.GetComponentInParent<NotesTask>();
+                    if (conditionNotesTask != null)
+                    {
+                        UpdateTaskConditions(conditionNotesTask.gameObject);
+                        UpdateTaskStatus(conditionNotesTask);
+                    }
+
+                    return;
+                }
+
+                NotesTask notesTask = GetObjectUnderMouse<NotesTask>();
                 if (notesTask != null)
                 {
-                    var quest = _questClassField.GetValue(notesTask) as QuestClass;
+                    var quest = _taskQuestClassField.GetValue(notesTask) as QuestClass;
                     HandleQuestRightClick(quest);
 
                     // Update the task status
                     UpdateTaskStatus(notesTask);
+
+                    // Update any conditions that may be individually tracked
+                    UpdateTaskConditions(notesTask.gameObject);
+
+                    return;
                 }
             }
 
+            // Trader task list
             if (QuestsScreenActive && Input.GetMouseButtonDown(1))
             {
-                QuestListItem questListItem = GetQuestListItemUnderMouse();
+                QuestsScreen questScreen = null;
+
+                // Handle toggling quests
+                QuestListItem questListItem = GetObjectUnderMouse<QuestListItem>();
                 if (questListItem != null)
                 {
-                    QuestClass quest = questListItem.Quest;
-                    HandleQuestRightClick(quest);
-
-                    // Update the quest text
+                    HandleQuestRightClick(questListItem.Quest);
                     _questListItemUpdateViewMethod.Invoke(questListItem, null);
+
+                    questScreen = questListItem.GetComponentInParent<QuestsScreen>();
+                }
+
+                // Handle toggling specific objectives
+                QuestObjectiveView questObjective = GetObjectUnderMouse<QuestObjectiveView>();
+                if (questObjective != null)
+                {
+                    var quest = _objectiveQuestClassField.GetValue(questObjective) as QuestClass;
+                    var condition = _objectiveConditionField.GetValue(questObjective) as Condition;
+                    HandleConditionRightClick(quest, condition);
+
+                    questScreen = questObjective.GetComponentInParent<QuestsScreen>();
+                }
+
+                // Refresh the UI
+                if (questScreen != null)
+                {
+                    // Update the selected quest list entry
+                    var questListView = questScreen.GetComponentInChildren<QuestsListView>();
+                    if (questListView != null)
+                    {
+                        QuestListItem selected = _questListSelectedField.GetValue(questListView) as QuestListItem;
+                        _questListItemUpdateViewMethod.Invoke(selected, null);
+                    }
+
+                    // Update the objective list
+                    var questView = questScreen.GetComponentInChildren<QuestView>();
+                    if (questView != null)
+                    {
+                        UpdateTaskConditions(questView.gameObject);
+                    }
                 }
             }
         }
@@ -116,41 +190,50 @@ namespace DrakiaXYZ.QuestTracker
             // Toggle whether the quest is tracked
             if (!QuestsTracker.IsTracked(quest))
             {
-                Logger.LogDebug($"Tracking: {quest.Template.Name}");
                 QuestsTracker.TrackQuest(quest);
             }
             else
             {
-                Logger.LogDebug($"Untracking: {quest.Template.Name}");
                 QuestsTracker.UntrackQuest(quest);
             }
             QuestsTracker.Save();
         }
 
-        private NotesTask GetNotesTaskUnderMouse()
+        private void HandleConditionRightClick(QuestClass quest, Condition condition)
         {
-            // Get the elements under where the user clicked
-            var eventData = new PointerEventData(_eventSystem) { position = Input.mousePosition };
-            _hits.Clear();
-            foreach (var graphicsRaycaster in GraphicsRaycasters)
+            // If the quest isn't in progress, don't do anything
+            EQuestStatus status = quest.QuestStatus;
+            if (status != EQuestStatus.Started && status != EQuestStatus.AvailableForFinish && status != EQuestStatus.MarkedAsFailed)
             {
-                graphicsRaycaster.Raycast(eventData, _hits);
+                return;
             }
 
-            // Check if the user clicked on a NotesTask element
-            NotesTask notesTask;
-            foreach (var result in _hits)
+            // If the quest isn't tracked, track the quest
+            if (!QuestsTracker.IsTracked(quest))
             {
-                if ((notesTask = result.gameObject.GetComponent<NotesTask>()) != null)
+                QuestsTracker.TrackQuest(quest);
+
+                // Special handling of the case where the quest wasn't tracked, but we already tracked the condition, we don't want to _untrack_ it
+                if (QuestsTracker.IsTracked(quest, condition))
                 {
-                    return notesTask;
+                    return;
                 }
             }
 
-            return null;
+            // Toggle whether the condition is tracked
+            if (!QuestsTracker.IsTracked(quest, condition))
+            {
+                QuestsTracker.TrackCondition(quest, condition);
+            }
+            else
+            {
+                QuestsTracker.UntrackCondition(quest, condition);
+            }
+
+            QuestsTracker.Save();
         }
 
-        private QuestListItem GetQuestListItemUnderMouse()
+        private T GetObjectUnderMouse<T>() where T : class
         {
             // Get the elements under where the user clicked
             var eventData = new PointerEventData(_eventSystem) { position = Input.mousePosition };
@@ -160,13 +243,20 @@ namespace DrakiaXYZ.QuestTracker
                 graphicsRaycaster.Raycast(eventData, _hits);
             }
 
-            // Check if the user clicked on a NotesTask element
-            QuestListItem questListItem;
+            // Check if the user clicked on the requested type
+            T targetElement;
             foreach (var result in _hits)
             {
-                if ((questListItem = result.gameObject.GetComponent<QuestListItem>()) != null)
+                // Loop through the hit, and all parents, to look for the object
+                var element = result.gameObject;
+                while (element != null)
                 {
-                    return questListItem;
+                    if ((targetElement = element.GetComponent<T>()) != null)
+                    {
+                        return targetElement;
+                    }
+
+                    element = element.transform?.parent?.gameObject;
                 }
             }
 
@@ -178,7 +268,7 @@ namespace DrakiaXYZ.QuestTracker
          */
         private void UpdateTaskStatus(NotesTask notesTask)
         {
-            var quest = _questClassField.GetValue(notesTask) as QuestClass;
+            var quest = _taskQuestClassField.GetValue(notesTask) as QuestClass;
             var statusLabel = _statusLabelField.GetValue(notesTask) as TextMeshProUGUI;
 
             if (QuestsTracker.IsTracked(quest))
@@ -204,7 +294,19 @@ namespace DrakiaXYZ.QuestTracker
                     break;
             }
         }
-        
+
+        private void UpdateTaskConditions(GameObject parentObject)
+        {
+            var questObjectives = parentObject.GetComponentsInChildren<QuestObjectiveView>();
+            foreach (var questObjective in questObjectives)
+            {
+                var quest = _objectiveQuestClassField.GetValue(questObjective) as QuestClass;
+                var condition = _objectiveConditionField.GetValue(questObjective) as Condition;
+
+                UpdateConditionDescription(questObjective, quest, condition);
+            }
+        }
+
         private void LoadBundle()
         {
             var bundlePath = Path.Combine(PluginFolder, "questtrackerui.bundle");
@@ -231,6 +333,25 @@ namespace DrakiaXYZ.QuestTracker
             DontDestroyOnLoad(asset);
             return asset;
         }
+
+        public static void UpdateConditionDescription(QuestObjectiveView questObjective, QuestClass quest, Condition condition)
+        {
+            TextMeshProUGUI description = _descriptionField.GetValue(questObjective) as TextMeshProUGUI;
+
+            string descriptionText = condition.FormattedDescription;
+            if (!condition.IsNecessary)
+            {
+                descriptionText = "(optional)".Localized(null) + " " + descriptionText;
+            }
+
+            if (QuestsTracker.IsTracked(quest, condition))
+            {
+                descriptionText = descriptionText +
+                    " <color=#" + ColorUtility.ToHtmlStringRGB(QuestTrackerPlugin.TrackedConditionColor) + ">" + ConditionTracked + "</color>";
+            }
+
+            description.text = descriptionText;
+        }
     }
 
     /**
@@ -254,14 +375,15 @@ namespace DrakiaXYZ.QuestTracker
         {
             if (_questsLoaded) return;
             _questsLoaded = true;
-
+#if DEBUG
             Logger.LogDebug("MenuScreenShowPatch Postfix");
+#endif
 
             // Load list of tracked quests
             AbstractQuestControllerClass questController = _questControllerField.GetValue(__instance) as AbstractQuestControllerClass;
             if (!QuestsTracker.Load(questController))
             {
-                Logger.LogError("Error, unable to load tracked quests");
+                Logger.LogError("Error, unable to load tracked quests. Clearing");
             }
         }
     }
@@ -280,7 +402,9 @@ namespace DrakiaXYZ.QuestTracker
         [PatchPostfix]
         public static void PatchPostfix(TasksScreen __instance)
         {
+#if DEBUG
             Logger.LogDebug("Task Screen Shown, enable hooks");
+#endif
 
             QuestTrackerPlugin.TasksScreenActive = true;
             QuestTrackerPlugin.GraphicsRaycasters = UnityEngine.Object.FindObjectsOfType<GraphicRaycaster>();
@@ -301,7 +425,9 @@ namespace DrakiaXYZ.QuestTracker
         [PatchPostfix]
         public static void PatchPostfix(TasksScreen __instance)
         {
+#if DEBUG
             Logger.LogDebug("Task Screen Closed, disable hooks");
+#endif
             QuestTrackerPlugin.TasksScreenActive = false;
         }
     }
@@ -319,7 +445,9 @@ namespace DrakiaXYZ.QuestTracker
         [PatchPostfix]
         public static void PatchPostfix()
         {
+#if DEBUG
             Logger.LogDebug("Quest Screen Shown, enable hooks");
+#endif
 
             QuestTrackerPlugin.QuestsScreenActive = true;
             QuestTrackerPlugin.GraphicsRaycasters = UnityEngine.Object.FindObjectsOfType<GraphicRaycaster>();
@@ -339,7 +467,9 @@ namespace DrakiaXYZ.QuestTracker
         [PatchPostfix]
         public static void PatchPostfix()
         {
+#if DEBUG
             Logger.LogDebug("Quest Screen Closed, disable hooks");
+#endif
             QuestTrackerPlugin.QuestsScreenActive = false;
         }
     }
@@ -363,6 +493,23 @@ namespace DrakiaXYZ.QuestTracker
                 ____status.text = QuestTrackerPlugin.TrackedStatus;
                 ____status.color = QuestTrackerPlugin.TrackedColor;
             }
+        }
+    }
+
+    /**
+     * Add the text "(Tracked)" to condition description if task is tracked
+     */
+    class QuestObjectiveViewShowPatch : ModulePatch
+    {
+        protected override MethodBase GetTargetMethod()
+        {
+            return AccessTools.Method(typeof(QuestObjectiveView), nameof(QuestObjectiveView.Show));
+        }
+
+        [PatchPostfix]
+        public static void PatchPostfix(QuestObjectiveView __instance, QuestClass quest, Condition condition)
+        {
+            QuestTrackerPlugin.UpdateConditionDescription(__instance, quest, condition);
         }
     }
 

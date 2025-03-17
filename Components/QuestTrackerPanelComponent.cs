@@ -44,7 +44,9 @@ namespace DrakiaXYZ.QuestTracker.Components
 
         public void Awake()
         {
+#if DEBUG
             Logger.LogInfo("QuestTrackerPanelComponent Awake");
+#endif
 
             // Create the Panel prefab, clear its children and add it to the parent object
             _panel = Instantiate(QuestTrackerPanelPrefab);
@@ -61,7 +63,7 @@ namespace DrakiaXYZ.QuestTracker.Components
             SetWidth(Settings.MaxWidth.Value);
         }
 
-        public void SetQuests(Dictionary<string, QuestClass> trackedQuests, List<QuestClass> mapQuests)
+        public void SetQuests(Dictionary<string, Tuple<QuestClass, TrackedQuestData>> trackedQuests, List<QuestClass> mapQuests)
         {
             // Make sure we have enough QuestEntry objects
             int totalEntries = trackedQuests.Count;
@@ -83,9 +85,9 @@ namespace DrakiaXYZ.QuestTracker.Components
             int questIndex = 0;
             int objectiveIndex = 0;
             int siblingIndex = 0;
-            foreach (var quest in trackedQuests.Values.ToList().OrderBy(quest => quest.Template.Name))
+            foreach (var quest in trackedQuests.Values.ToList().OrderBy(quest => quest.Item1.Template.Name))
             {
-                SetupQuest(quest, ref questIndex, ref objectiveIndex, ref siblingIndex);
+                SetupQuest(quest.Item1, quest.Item2, ref questIndex, ref objectiveIndex, ref siblingIndex);
             }
 
             if (Settings.IncludeMapQuests.Value)
@@ -94,7 +96,7 @@ namespace DrakiaXYZ.QuestTracker.Components
                 {
                     if (quest.Template != null && trackedQuests.ContainsKey(quest.Id)) continue;
 
-                    SetupQuest(quest, ref questIndex, ref objectiveIndex, ref siblingIndex);
+                    SetupQuest(quest, null, ref questIndex, ref objectiveIndex, ref siblingIndex);
                 }
             }
 
@@ -114,7 +116,7 @@ namespace DrakiaXYZ.QuestTracker.Components
             SetWidth(Settings.MaxWidth.Value);
         }
 
-        public void SetupQuest(QuestClass quest, ref int questIndex, ref int objectiveIndex, ref int siblingIndex)
+        public void SetupQuest(QuestClass quest, TrackedQuestData trackedQuestData, ref int questIndex, ref int objectiveIndex, ref int siblingIndex)
         {
             // Skip quests that are ready to hand in if we're hiding completed quests
             if (Settings.HideCompletedQuests.Value && quest.QuestStatus == EQuestStatus.AvailableForFinish)
@@ -126,7 +128,7 @@ namespace DrakiaXYZ.QuestTracker.Components
 
             if (Settings.ShowObjectives.Value)
             {
-                objectiveIndex = SetupQuestObjectiveObjects(quest, objectiveIndex, ref siblingIndex);
+                objectiveIndex = SetupQuestObjectiveObjects(quest, trackedQuestData, objectiveIndex, ref siblingIndex);
             }
         }
 
@@ -272,7 +274,7 @@ namespace DrakiaXYZ.QuestTracker.Components
             return questIndex;
         }
 
-        private int SetupQuestObjectiveObjects(QuestClass quest, int objectiveIndex, ref int siblingIndex)
+        private int SetupQuestObjectiveObjects(QuestClass quest, TrackedQuestData trackedQuestData, int objectiveIndex, ref int siblingIndex)
         {
             // Filter out any quest that isn't currently started/done/failed
             EQuestStatus status = quest.QuestStatus;
@@ -288,6 +290,11 @@ namespace DrakiaXYZ.QuestTracker.Components
                 bool isConditionDone = quest.IsConditionDone(condition);
 
                 if (Settings.HideCompletedObjectives.Value && isConditionDone)
+                {
+                    continue;
+                }
+
+                if (trackedQuestData != null && trackedQuestData.Conditions.Count > 0 && !trackedQuestData.Conditions.Contains(condition.id))
                 {
                     continue;
                 }
@@ -355,12 +362,12 @@ namespace DrakiaXYZ.QuestTracker.Components
             questTransform.GetChild(1).GetComponent<Text>().text = progressText;
         }
 
-        private void CreateObjectivePrefabs(Dictionary<string, QuestClass> trackedQuests, List<QuestClass> mapQuests)
+        private void CreateObjectivePrefabs(Dictionary<string, Tuple<QuestClass, TrackedQuestData>> trackedQuests, List<QuestClass> mapQuests)
         {
             int objectiveCount = 0;
             foreach (var quest in trackedQuests.Values)
             {
-                objectiveCount += GetObjectiveCount(quest);
+                objectiveCount += GetObjectiveCount(quest.Item1, quest.Item2);
             }
 
             if (Settings.IncludeMapQuests.Value)
@@ -369,14 +376,14 @@ namespace DrakiaXYZ.QuestTracker.Components
                 {
                     if (quest.Template != null && trackedQuests.ContainsKey(quest.Id)) continue;
 
-                    objectiveCount += GetObjectiveCount(quest);
+                    objectiveCount += GetObjectiveCount(quest, null);
                 }
             }
 
             CreatePrefabs(QuestObjectivesPrefab, _questObjectiveObjects, objectiveCount, Settings.SubFontSize.Value);
         }
 
-        private int GetObjectiveCount(QuestClass quest)
+        private int GetObjectiveCount(QuestClass quest, TrackedQuestData trackedQuestData)
         {
             // Filter out any quest that isn't currently started/done/failed
             EQuestStatus status = quest.QuestStatus;
@@ -389,6 +396,12 @@ namespace DrakiaXYZ.QuestTracker.Components
             foreach (var condition in quest.NecessaryConditions)
             {
                 if (Settings.HideCompletedObjectives.Value && quest.IsConditionDone(condition))
+                {
+                    continue;
+                }
+
+                // If we're tracking specific conditions, and this isn't one of them, skip
+                if (trackedQuestData != null && trackedQuestData.Conditions.Count > 0 && !trackedQuestData.Conditions.Contains(condition.id))
                 {
                     continue;
                 }
@@ -418,7 +431,9 @@ namespace DrakiaXYZ.QuestTracker.Components
 
         private void OnDestroy()
         {
+#if DEBUG
             Logger.LogInfo("QuestTrackerPanelComponent Destroy");
+#endif
             Utils.DestroyAllChildren(_panel.transform);
             Destroy(_panel);
         }
