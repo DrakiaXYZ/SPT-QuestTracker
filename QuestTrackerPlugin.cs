@@ -551,14 +551,24 @@ namespace DrakiaXYZ.QuestTracker
     {
         protected override MethodBase GetTargetMethod()
         {
-            return AccessTools.Method(typeof(QuestStatusComparerClass), nameof(QuestStatusComparerClass.Compare));
+            // First try to find the Task List Fixes implementation
+            Type compareClassType = Type.GetType("DrakiaXYZ.TaskListFixes.Comparers.QuestStatusComparer, DrakiaXYZ-TaskListFixes");
+            if (compareClassType == null)
+            {
+                compareClassType = typeof(QuestStatusComparerClass);
+            }
+
+            return AccessTools.Method(compareClassType, "Compare");
         }
 
         [PatchPostfix]
-        public static void PatchPostfix(QuestClass x, QuestClass y, ref int __result)
+        public static void PatchPostfix(object[] __args, ref int __result)
         {
-            bool leftTracked = QuestsTracker.IsTracked(x);
-            bool rightTracked = QuestsTracker.IsTracked(y);
+            QuestClass leftQuest = __args[0] as QuestClass;
+            QuestClass rightQuest = __args[1] as QuestClass;
+
+            bool leftTracked = QuestsTracker.IsTracked(leftQuest);
+            bool rightTracked = QuestsTracker.IsTracked(rightQuest);
             if (leftTracked && !rightTracked)
             {
                 __result = 1;
