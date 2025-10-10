@@ -1,12 +1,12 @@
-﻿using SPT.Reflection.Patching;
-using SPT.Reflection.Utils;
-using BepInEx;
+﻿using BepInEx;
 using DrakiaXYZ.QuestTracker.Components;
 using DrakiaXYZ.QuestTracker.Helpers;
+using DrakiaXYZ.QuestTracker.VersionChecker;
 using EFT;
 using EFT.Quests;
 using EFT.UI;
 using HarmonyLib;
+using SPT.Reflection.Patching;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -16,13 +16,12 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-
-using QuestStatusComparerClass = GClass3509;
+using QuestStatusComparerClass = GClass3796;
 
 namespace DrakiaXYZ.QuestTracker
 {
-    [BepInPlugin("xyz.drakia.questtracker", "DrakiaXYZ-QuestTracker", "1.5.1")]
-    [BepInDependency("com.SPT.core", "3.11.0")]
+    [BepInPlugin("xyz.drakia.questtracker", "DrakiaXYZ-QuestTracker", "1.6.0")]
+    [BepInDependency("com.SPT.core", "4.0.0")]
     public class QuestTrackerPlugin : BaseUnityPlugin
     {
         public static string PluginFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
@@ -51,6 +50,11 @@ namespace DrakiaXYZ.QuestTracker
 
         private void Awake()
         {
+            if (!TarkovVersion.CheckEftVersion(Logger, Info, Config))
+            {
+                throw new Exception($"Invalid EFT Version");
+            }
+
             Settings.Init(Config);
             Utils.Init();
             QuestsTracker.SetLogger(Logger);
