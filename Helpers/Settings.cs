@@ -6,9 +6,22 @@ namespace DrakiaXYZ.QuestTracker.Helpers
 {
     internal class Settings
     {
-        public const string GeneralSectionTitle = "1. General";
-        public const string PanelSettingsSectionTitle = "2. Panel Settings";
-        public const string DisplaySectionTitle = "3. Display";
+        public static class Sections
+        {
+            public const string GeneralSectionTitle = "1. General";
+            public const string RowsSettingsSectionTitle = "2. Rows Settings";
+            public const string PanelSectionTitle = "3. Panel Settings";
+            public const string TextSectionTitle = "4. Text Settings";
+
+            private static readonly HashSet<string> Gui = new HashSet<string>
+            {
+                RowsSettingsSectionTitle,
+                PanelSectionTitle,
+                TextSectionTitle
+            };
+
+            public static bool IsGui(string section) => Gui.Contains(section);
+        }
 
         public static ConfigFile Config;
 
@@ -28,10 +41,18 @@ namespace DrakiaXYZ.QuestTracker.Helpers
 
         public static ConfigEntry<int> MaxWidth;
         public static ConfigEntry<float> Transparency;
+        public static ConfigEntry<bool> WrapText;
         public static ConfigEntry<int> MainFontSize;
         public static ConfigEntry<int> SubFontSize;
+        public static ConfigEntry<int> MainProgressWidth;
+        public static ConfigEntry<int> SubProgressWidth;
+        public static ConfigEntry<Color> MainTextColor;
+        public static ConfigEntry<Color> SubTextColor;
         public static ConfigEntry<EAlignment> Alignment;
-        public static ConfigEntry<bool> CoolKidsClub;
+        public static ConfigEntry<EVerticalAlignment> VerticalAlignment;
+        public static ConfigEntry<int> HorizontalOffset;
+        public static ConfigEntry<int> VerticalOffset;
+        public static ConfigEntry<bool> TestContent;
 
         public static List<ConfigEntryBase> ConfigEntries = new List<ConfigEntryBase>();
 
@@ -40,168 +61,240 @@ namespace DrakiaXYZ.QuestTracker.Helpers
             Settings.Config = Config;
 
             ConfigEntries.Add(VisibleAtRaidStart = Config.Bind(
-                GeneralSectionTitle,
+                Sections.GeneralSectionTitle,
                 "Visible At Raid Start",
                 true,
                 new ConfigDescription(
                     "Whether the panel is visible at raid start",
                     null,
-                    new ConfigurationManagerAttributes { })));
+                    new ConfigurationManagerAttributes())));
 
             ConfigEntries.Add(PanelToggleKey = Config.Bind(
-                GeneralSectionTitle,
+                Sections.GeneralSectionTitle,
                 "Panel Toggle Key",
                 new KeyboardShortcut(KeyCode.I),
                 new ConfigDescription(
                     "Key used to toggle the Quest Tracker panel",
                     null,
-                    new ConfigurationManagerAttributes { })));
+                    new ConfigurationManagerAttributes())));
 
             ConfigEntries.Add(AutoHide = Config.Bind(
-                GeneralSectionTitle,
+                Sections.GeneralSectionTitle,
                 "Auto Hide",
                 true,
                 new ConfigDescription(
                     "Whether to automatically hide the list after a timeout",
                     null,
-                    new ConfigurationManagerAttributes { })));
+                    new ConfigurationManagerAttributes())));
 
             ConfigEntries.Add(AutoHideTimer = Config.Bind(
-                GeneralSectionTitle,
+                Sections.GeneralSectionTitle,
                 "Auto Hide Timer",
                 5,
                 new ConfigDescription(
                     "How long to show before hiding",
                     new AcceptableValueRange<int>(1, 60),
-                    new ConfigurationManagerAttributes { })));
+                    new ConfigurationManagerAttributes())));
 
             ConfigEntries.Add(ShowOnObjective = Config.Bind(
-                GeneralSectionTitle,
+                Sections.GeneralSectionTitle,
                 "Show On Objective Progress",
                 true,
                 new ConfigDescription(
                     "Whether to temporarily show the list on objective progress",
                     null,
-                    new ConfigurationManagerAttributes { })));
+                    new ConfigurationManagerAttributes())));
+            
+            ConfigEntries.Add(TestContent = Config.Bind(
+                Sections.GeneralSectionTitle,
+                "Use Test Content",
+                false,
+                new ConfigDescription(
+                    "If enabled, the panel shows 3 fake quests for tweaking UI settings instead of real quest data",
+                    null,
+                    new ConfigurationManagerAttributes())));
 
             ConfigEntries.Add(IncludeMapQuests = Config.Bind(
-                PanelSettingsSectionTitle,
+                Sections.RowsSettingsSectionTitle,
                 "Include Current Map Quests",
                 false,
                 new ConfigDescription(
                     "Whether to always include the current map's quests",
                     null,
-                    new ConfigurationManagerAttributes { })));
+                    new ConfigurationManagerAttributes())));
 
             ConfigEntries.Add(ExcludeOtherMapQuests = Config.Bind(
-                PanelSettingsSectionTitle,
+                Sections.RowsSettingsSectionTitle,
                 "Exclude Other Map Quests",
                 true,
                 new ConfigDescription(
                     "Whether to always exclude quests not for the current or 'Any' map",
                     null,
-                    new ConfigurationManagerAttributes { })));
+                    new ConfigurationManagerAttributes())));
 
             ConfigEntries.Add(ProgressAsPercent = Config.Bind(
-                PanelSettingsSectionTitle,
+                Sections.RowsSettingsSectionTitle,
                 "Progress As Percent",
                 true,
                 new ConfigDescription(
                     "Whether to show total quest progress as a percentage, or numeric count",
                     null,
-                    new ConfigurationManagerAttributes { })));
+                    new ConfigurationManagerAttributes())));
 
             ConfigEntries.Add(HideCompletedQuests = Config.Bind(
-                PanelSettingsSectionTitle,
+                Sections.RowsSettingsSectionTitle,
                 "Hide Completed Quests",
                 true,
                 new ConfigDescription(
                     "Whether to hide quests that are ready to be handed in",
                     null,
-                    new ConfigurationManagerAttributes { })));
+                    new ConfigurationManagerAttributes())));
 
             ConfigEntries.Add(ShowObjectives = Config.Bind(
-                PanelSettingsSectionTitle,
+                Sections.RowsSettingsSectionTitle,
                 "Show Objectives",
                 true,
                 new ConfigDescription(
                     "Whether to show individual quest objectives",
                     null,
-                    new ConfigurationManagerAttributes { })));
+                    new ConfigurationManagerAttributes())));
 
             ConfigEntries.Add(ObjectivesAsPercent = Config.Bind(
-                PanelSettingsSectionTitle,
+                Sections.RowsSettingsSectionTitle,
                 "Objectives As Percent",
                 false,
                 new ConfigDescription(
                     "Whether to show quest objectives as a percentage, or numeric count",
                     null,
-                    new ConfigurationManagerAttributes { })));
+                    new ConfigurationManagerAttributes())));
 
             ConfigEntries.Add(HideCompletedObjectives = Config.Bind(
-                PanelSettingsSectionTitle,
+                Sections.RowsSettingsSectionTitle,
                 "Hide Completed Objectives",
                 true,
                 new ConfigDescription(
                     "Whether to hide completed objectives from the objective list",
                     null,
-                    new ConfigurationManagerAttributes { })));
-
-            // Special case where I want to allow different values for different resolutions
-            string maxWidthName = $"Maximum Width ({Screen.width}p)";
-            ConfigEntries.Add(MaxWidth = Config.Bind(
-                DisplaySectionTitle,
-                maxWidthName,
-                Screen.width / 6,
-                new ConfigDescription(
-                    "The maximum width of the panel before text wraps",
-                    new AcceptableValueRange<int>(250, Screen.width),
-                    new ConfigurationManagerAttributes { })));
-
-            ConfigEntries.Add(Transparency = Config.Bind(
-                DisplaySectionTitle,
-                "Panel Background Transparency",
-                0.4f,
-                new ConfigDescription(
-                    "The transparency value for the panel background",
-                    new AcceptableValueRange<float>(0f, 1f),
-                    new ConfigurationManagerAttributes { })));
-
-            ConfigEntries.Add(MainFontSize = Config.Bind(
-                DisplaySectionTitle,
-                "Font Size",
-                30,
-                new ConfigDescription(
-                    "The main font size",
-                    new AcceptableValueRange<int>(12, 92),
-                    new ConfigurationManagerAttributes { })));
-
-            ConfigEntries.Add(SubFontSize = Config.Bind(
-                DisplaySectionTitle,
-                "Objective Font Size",
-                20,
-                new ConfigDescription(
-                    "The objective font size",
-                    new AcceptableValueRange<int>(12, 92),
-                    new ConfigurationManagerAttributes { })));
-
+                    new ConfigurationManagerAttributes())));
+            
             ConfigEntries.Add(Alignment = Config.Bind(
-                DisplaySectionTitle,
+                Sections.PanelSectionTitle,
                 "Alignment",
                 EAlignment.Right,
                 new ConfigDescription(
                     "Whether to align the tracker to the right or left",
                     null,
-                    new ConfigurationManagerAttributes { })));
-
-            ConfigEntries.Add(CoolKidsClub = Config.Bind(
-                DisplaySectionTitle,
-                "Cool Kids Mode",
-                false,
+                    new ConfigurationManagerAttributes())));
+            
+            ConfigEntries.Add(VerticalAlignment = Config.Bind(
+                Sections.PanelSectionTitle,
+                "Vertical Alignment",
+                EVerticalAlignment.Middle,
                 new ConfigDescription(
-                    "Join the cool kids club",
+                    "Vertical alignment of the panel on the screen (Top/Middle/Bottom)",
                     null,
-                    new ConfigurationManagerAttributes { IsAdvanced = true })));
+                    new ConfigurationManagerAttributes())));
+            
+            ConfigEntries.Add(HorizontalOffset = Config.Bind(
+                Sections.PanelSectionTitle,
+                "Horizontal Offset",
+                10,
+                new ConfigDescription(
+                    "Horizontal offset in pixels from the screen edge",
+                    new AcceptableValueRange<int>(0, 500),
+                    new ConfigurationManagerAttributes())));
+
+            ConfigEntries.Add(VerticalOffset = Config.Bind(
+                Sections.PanelSectionTitle,
+                "Vertical Offset",
+                10,
+                new ConfigDescription(
+                    "Vertical offset in pixels from the screen edge",
+                    new AcceptableValueRange<int>(0, 500),
+                    new ConfigurationManagerAttributes())));
+
+            // Special case where I want to allow different values for different resolutions
+            string maxWidthName = $"Maximum Width ({Screen.width}p)";
+            ConfigEntries.Add(MaxWidth = Config.Bind(
+                Sections.PanelSectionTitle,
+                maxWidthName,
+                Screen.width / 6,
+                new ConfigDescription(
+                    "The maximum width of the panel before text wraps",
+                    new AcceptableValueRange<int>(250, Screen.width),
+                    new ConfigurationManagerAttributes())));
+
+            ConfigEntries.Add(Transparency = Config.Bind(
+                Sections.PanelSectionTitle,
+                "Panel Background Transparency",
+                0.4f,
+                new ConfigDescription(
+                    "The transparency value for the panel background",
+                    new AcceptableValueRange<float>(0f, 1f),
+                    new ConfigurationManagerAttributes())));
+
+            ConfigEntries.Add(WrapText = Config.Bind(
+                Sections.PanelSectionTitle,
+                "Wrap Text",
+                true,
+                new ConfigDescription(
+                    "If enabled, quest/objective text will wrap to multiple lines.",
+                    null,
+                    new ConfigurationManagerAttributes())));
+            
+            ConfigEntries.Add(MainFontSize = Config.Bind(
+                Sections.TextSectionTitle,
+                "Quest Font Size",
+                18,
+                new ConfigDescription(
+                    "The quest title font size",
+                    new AcceptableValueRange<int>(8, 32),
+                    new ConfigurationManagerAttributes())));
+
+            ConfigEntries.Add(SubFontSize = Config.Bind(
+                Sections.TextSectionTitle,
+                "Objective Font Size",
+                14,
+                new ConfigDescription(
+                    "The objective font size",
+                    new AcceptableValueRange<int>(8, 32),
+                    new ConfigurationManagerAttributes())));
+            
+            ConfigEntries.Add(MainProgressWidth = Config.Bind(
+                Sections.TextSectionTitle,
+                "Quest Progress Width",
+                110,
+                new ConfigDescription(
+                    "Width of the right progress column for quest header rows.",
+                    new AcceptableValueRange<int>(20, 400),
+                    new ConfigurationManagerAttributes())));
+
+            ConfigEntries.Add(SubProgressWidth = Config.Bind(
+                Sections.TextSectionTitle,
+                "Objective Progress Width",
+                90,
+                new ConfigDescription(
+                    "Width of the right progress column for objective rows.",
+                    new AcceptableValueRange<int>(20, 400),
+                    new ConfigurationManagerAttributes())));
+            
+            ConfigEntries.Add(MainTextColor = Config.Bind(
+                Sections.TextSectionTitle,
+                "Quest Color",
+                new Color(0.85f, 0.85f, 0.75f),
+                new ConfigDescription(
+                    "The quest title text color",
+                    null,
+                    new ConfigurationManagerAttributes())));
+
+            ConfigEntries.Add(SubTextColor = Config.Bind(
+                Sections.TextSectionTitle,
+                "Objective Color",
+                new Color(1f, 1f, 1f),
+                new ConfigDescription(
+                    "The objective text color",
+                    null,
+                    new ConfigurationManagerAttributes())));
 
             RecalcOrder();
         }
@@ -225,6 +318,13 @@ namespace DrakiaXYZ.QuestTracker.Helpers
         {
             Right = 0,
             Left = 1,
+        }
+        
+        public enum EVerticalAlignment
+        {
+            Top = 0,
+            Middle = 1,
+            Bottom = 2
         }
     }
 }

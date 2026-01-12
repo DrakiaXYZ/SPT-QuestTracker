@@ -1,40 +1,28 @@
-﻿using BepInEx.Logging;
+using BepInEx.Logging;
 using DrakiaXYZ.QuestTracker.Helpers;
 using EFT.Quests;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace DrakiaXYZ.QuestTracker.Components
 {
     internal class QuestTrackerPanelComponent : MonoBehaviour
     {
-        public static GameObject QuestTrackerPanelPrefab;
-        public static GameObject QuestEntryPrefab;
-        public static GameObject QuestObjectivesPrefab;
-
-        private GameObject _panel;
-        private Image _background;
-        private LayoutElement _layoutElement;
-        private VerticalLayoutGroup _layoutGroup;
-
-        private List<GameObject> _questEntryObjects = new List<GameObject>();
-        private List<GameObject> _questObjectiveObjects = new List<GameObject>();
-
+        private QuestTrackerPanelUI _ui;
+        
         protected ManualLogSource Logger;
+        
+        private Coroutine _fadeRoutine;
+        private bool _visible;
+        private const float FadeDuration = 0.20f;
 
         public bool Visible
         {
-            get
-            {
-                return _panel.activeSelf;
-            }
-            set
-            {
-                _panel.SetActive(value);
-            }
+            get => _visible;
+            set => SetVisible(value);
         }
 
         public QuestTrackerPanelComponent()
@@ -44,27 +32,35 @@ namespace DrakiaXYZ.QuestTracker.Components
 
         public void Awake()
         {
-#if DEBUG
-            Logger.LogInfo("QuestTrackerPanelComponent Awake");
-#endif
+            _ui = new QuestTrackerPanelUI();
+            _ui.Build(transform);
 
-            // Create the Panel prefab, clear its children and add it to the parent object
-            _panel = Instantiate(QuestTrackerPanelPrefab);
-            Utils.DestroyAllChildren(_panel.transform);
-            _panel.transform.SetParent(transform);
+            _visible = false;
+            _ui.Group.alpha = 0f;
+            _ui.Group.interactable = false;
+            _ui.Group.blocksRaycasts = false;
 
-            _background = _panel.GetComponent<Image>();
-            _layoutElement = _panel.GetComponent<LayoutElement>();
-            _layoutGroup = _panel.GetComponent<VerticalLayoutGroup>();
-
-            // Restore settings
-            SetAlignment(Settings.Alignment.Value);
-            SetTransparency(Settings.Transparency.Value);
-            SetWidth(Settings.MaxWidth.Value);
+            _ui.SetWrapText(Settings.WrapText.Value);
+            _ui.SetAlignment(Settings.Alignment.Value, Settings.VerticalAlignment.Value);
+            _ui.SetOffsets(Settings.Alignment.Value, Settings.VerticalAlignment.Value,
+                Settings.HorizontalOffset.Value, Settings.VerticalOffset.Value);
+            _ui.SetTransparency(Settings.Transparency.Value);
+            _ui.SetMaxWidth(Settings.MaxWidth.Value);
+            
+            _ui.SetMainProgressWidth(Settings.MainProgressWidth.Value);
+            _ui.SetSubProgressWidth(Settings.SubProgressWidth.Value);
+        
+            _ui.SetMainFontSize(Settings.MainFontSize.Value);
+            _ui.SetSubFontSize(Settings.SubFontSize.Value);
+            
+            _ui.SetMainColor(Settings.MainTextColor.Value);
+            _ui.SetSubColor(Settings.SubTextColor.Value);
         }
 
         public void SetQuests(Dictionary<string, Tuple<QuestClass, TrackedQuestData>> trackedQuests, List<QuestClass> mapQuests)
         {
+            // Logger.LogInfo($"SetQuests called. tracked={trackedQuests.Count} map={mapQuests.Count} includeMap={Settings.IncludeMapQuests.Value} showObj={Settings.ShowObjectives.Value}");
+            
             // Make sure we have enough QuestEntry objects
             int totalEntries = trackedQuests.Count;
             if (Settings.IncludeMapQuests.Value)
@@ -73,26 +69,43 @@ namespace DrakiaXYZ.QuestTracker.Components
             }
 
             // Make sure we have enough QuestEntry objects
-            CreatePrefabs(QuestEntryPrefab, _questEntryObjects, totalEntries, Settings.MainFontSize.Value);
-
+            _ui.CreateQuestRows(totalEntries);
+            
             // Make sure we have enough QuestObjective objects if show objectives is enabled
             if (Settings.ShowObjectives.Value)
             {
-                CreateObjectivePrefabs(trackedQuests, mapQuests);
+                int objectiveCount = 0;
+
+                foreach (var quest in trackedQuests.Values)
+                {
+                    objectiveCount += GetObjectiveCount(quest.Item1, quest.Item2);
+                }
+
+                if (Settings.IncludeMapQuests.Value)
+                {
+                    foreach (var quest in mapQuests)
+                    {
+                        if (quest.Template != null && trackedQuests.ContainsKey(quest.Id)) continue;
+                        objectiveCount += GetObjectiveCount(quest, null);
+                    }
+                }
+
+                _ui.CreateObjectiveRows(objectiveCount);
             }
 
             // Setup the main tracked quests
             int questIndex = 0;
             int objectiveIndex = 0;
             int siblingIndex = 0;
-            foreach (var quest in trackedQuests.Values.ToList().OrderBy(quest => quest.Item1.Template.Name))
+
+            foreach (var quest in trackedQuests.Values.ToList().OrderBy(q => q.Item1.Template.Name))
             {
                 SetupQuest(quest.Item1, quest.Item2, ref questIndex, ref objectiveIndex, ref siblingIndex);
             }
 
             if (Settings.IncludeMapQuests.Value)
             {
-                foreach (var quest in mapQuests.OrderBy(quest => quest.Template.Name))
+                foreach (var quest in mapQuests.OrderBy(q => q.Template.Name))
                 {
                     if (quest.Template != null && trackedQuests.ContainsKey(quest.Id)) continue;
 
@@ -101,19 +114,98 @@ namespace DrakiaXYZ.QuestTracker.Components
             }
 
             // Disable any remaining child elements
-            while (questIndex < _questEntryObjects.Count)
-            {
-                _questEntryObjects[questIndex].SetActive(false);
-                questIndex++;
-            }
-            while (objectiveIndex < _questObjectiveObjects.Count)
-            {
-                _questObjectiveObjects[objectiveIndex].SetActive(false);
-                objectiveIndex++;
-            }
+            _ui.HideQuestRowsFrom(questIndex);
+            _ui.HideObjectiveRowsFrom(objectiveIndex);
+            
+            if (questIndex == 0)
+                Visible = false;
 
             // Set the width with our new elements
-            SetWidth(Settings.MaxWidth.Value);
+            _ui.SetMaxWidth(Settings.MaxWidth.Value);
+        }
+        
+        public void SetTestContent()
+        {
+            bool showObjectives = Settings.ShowObjectives.Value;
+            bool hideCompletedQuests = Settings.HideCompletedQuests.Value;
+            bool hideCompletedObjectives = Settings.HideCompletedObjectives.Value;
+
+            int questCount = !hideCompletedQuests ? 3 : 2;
+            int objectiveCount = !showObjectives ? 0 : hideCompletedObjectives ? 3 : hideCompletedQuests ? 4 : 5;
+            
+            _ui.CreateQuestRows(questCount);
+
+            if (showObjectives)
+            {
+                _ui.CreateObjectiveRows(objectiveCount);
+            }
+            
+            int q = 0;
+            int o = 0;
+            int sib = 0;
+
+            // In-progress quest
+            string q1Prog = Settings.ProgressAsPercent.Value ? "33%" : "1 / 3";
+
+            _ui.SetQuestRow(sib++, q++, "TEST QUEST: In Progress - Long title to test wrap", q1Prog, State.InProgress);
+
+            if (showObjectives)
+            {
+                // Obj1: condition = 1
+                _ui.SetObjectiveRow(sib++, o++, "Objective (condition = 1, progress hidden)", "", State.InProgress);
+
+                // Obj2: 3000/5000
+                float o2Cur = 3000f;
+                float o2Max = 5000f;
+                string o2Prog = Settings.ObjectivesAsPercent.Value
+                    ? $"{Mathf.FloorToInt((o2Cur / o2Max) * 100f)}%"
+                    : $"{o2Cur:0} / {o2Max:0}";
+
+                _ui.SetObjectiveRow(sib++, o++, "Objective (in progress, with high value) - Long objective text to test wrap setting", o2Prog, State.InProgress);
+
+                // Obj3: completed
+                if (!hideCompletedObjectives)
+                {
+                    float o3Cur = 5000f;
+                    float o3Max = 5000f;
+                    string o3Prog = Settings.ObjectivesAsPercent.Value
+                        ? "100%"
+                        : $"{o3Cur:0} / {o3Max:0}";
+
+                    _ui.SetObjectiveRow(sib++, o++, "Objective (completed)", o3Prog, State.Complete);
+                }
+            }
+
+            // Completed quest with completed objective
+            if (!hideCompletedQuests)
+            {
+                _ui.SetQuestRow(sib++, q++, "TEST QUEST: Completed - Long title to test wrap", "", State.Complete);
+
+                if (showObjectives && !hideCompletedObjectives)
+                {
+                    string oProg = Settings.ObjectivesAsPercent.Value ? "100%" : "5000 / 5000";
+                    _ui.SetObjectiveRow(sib++, o++, "Objective (completed)", oProg, State.Complete);
+                }
+            }
+
+            // Failed quest
+            _ui.SetQuestRow(sib++, q++, "TEST QUEST: Failed - Long title to test wrap", "", State.Failed);
+
+            if (showObjectives)
+            {
+                float cur = 1234f;
+                float max = 5000f;
+                string prog = Settings.ObjectivesAsPercent.Value
+                    ? $"{Mathf.FloorToInt((cur / max) * 100f)}%"
+                    : $"{cur:0} / {max:0}";
+
+                _ui.SetObjectiveRow(sib++, o++, "Some objective (with some value)", prog, State.InProgress);
+            }
+            
+            _ui.HideQuestRowsFrom(q);
+            _ui.HideObjectiveRowsFrom(o);
+
+            _ui.SetMaxWidth(Settings.MaxWidth.Value);
         }
 
         public void SetupQuest(QuestClass quest, TrackedQuestData trackedQuestData, ref int questIndex, ref int objectiveIndex, ref int siblingIndex)
@@ -125,108 +217,81 @@ namespace DrakiaXYZ.QuestTracker.Components
             }
 
             questIndex = SetupQuestObject(quest, questIndex, ref siblingIndex);
-
+            
             if (Settings.ShowObjectives.Value)
             {
                 objectiveIndex = SetupQuestObjectiveObjects(quest, trackedQuestData, objectiveIndex, ref siblingIndex);
             }
         }
 
+        public void SetWrapText(bool wrap)
+        {
+            _ui?.SetWrapText(wrap);
+        }
+        
         public void SetWidth(int maxWidth)
         {
             // Force a rebuild of the layout so we get an accurate width
-            LayoutRebuilder.ForceRebuildLayoutImmediate(Utils.RectTransform(_layoutGroup));
-
-            if (_layoutGroup.preferredWidth > maxWidth)
-            {
-                _layoutElement.preferredWidth = maxWidth;
-            }
-            else
-            {
-                _layoutElement.preferredWidth = -1;
-            }    
+            _ui?.SetMaxWidth(maxWidth);
         }
 
         public void SetMainFontSize(int fontSize)
         {
-            foreach (var entry in _questEntryObjects)
-            {
-                foreach (var item in entry.GetComponentsInChildren<Text>())
-                {
-                    item.fontSize = fontSize;
-                }
-            }
-
-            SetWidth(Settings.MaxWidth.Value);
+            _ui?.SetMainFontSize(fontSize);
+            _ui?.SetMaxWidth(Settings.MaxWidth.Value);
         }
 
         public void SetSubFontSize(int fontSize)
         {
-            foreach (var entry in _questObjectiveObjects)
-            {
-                foreach (var item in entry.GetComponentsInChildren<Text>())
-                {
-                    item.fontSize = fontSize;
-                }
-            }
-
-            SetWidth(Settings.MaxWidth.Value);
+            _ui?.SetSubFontSize(fontSize);
+            _ui?.SetMaxWidth(Settings.MaxWidth.Value);
         }
 
-        public void SetFont(bool coolKidsClub)
+        public void SetMainProgressWidth(int width)
         {
-            Font font = GetActiveFont(coolKidsClub);
-
-            foreach (var item in _panel.GetComponentsInChildren<Text>())
-            {
-                item.font = font;
-            }
-
-            SetWidth(Settings.MaxWidth.Value);
+            _ui?.SetMainProgressWidth(width);
+        }
+        
+        public void SetSubProgressWidth(int width)
+        {
+            _ui?.SetSubProgressWidth(width);
         }
 
-        public Font GetActiveFont(bool coolKidsClub)
+        public void SetMainColor(Color color)
         {
-            Font font;
-            if (coolKidsClub || this.coolKidsClub())
-            {
-                font = Font.CreateDynamicFontFromOSFont("Comic Sans MS", Settings.MainFontSize.Value);
-            }
-            else
-            {
-                font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            }
-
-            return font;
+            _ui?.SetMainColor(color);
         }
 
-        // Shhhhhhhhhhhhhhh
-        private bool coolKidsClub()
+        public void SetSubColor(Color color)
         {
-            return (DateTime.Now.Month == 4 && DateTime.Now.Day == 1);
+            _ui?.SetSubColor(color);
         }
 
         public void SetTransparency(float transparency)
         {
-            Color newColor = _background.color;
-            newColor.a = transparency;
-            _background.color = newColor;
+            _ui?.SetTransparency(transparency);
         }
 
         public void SetAlignment(Settings.EAlignment alignment)
         {
-            if (alignment == Settings.EAlignment.Left)
-            {
-                Utils.RectTransform(_panel).pivot = new Vector2(0f, 0.5f);
-                _panel.transform.position = new Vector3(0, Screen.height / 2, 0);
-            }
-            else
-            {
-                Utils.RectTransform(_panel).pivot = new Vector2(1f, 0.5f);
-                _panel.transform.position = new Vector3(Screen.width, Screen.height / 2, 0);
-            }
+            _ui?.SetAlignment(alignment, Settings.VerticalAlignment.Value);
+            _ui?.SetOffsets(alignment, Settings.VerticalAlignment.Value,
+                Settings.HorizontalOffset.Value, Settings.VerticalOffset.Value);
         }
-
+        
+        public void SetVerticalAlignment(Settings.EVerticalAlignment vAlignment)
+        {
+            _ui?.SetAlignment(Settings.Alignment.Value, vAlignment);
+            _ui?.SetOffsets(Settings.Alignment.Value, vAlignment,
+                Settings.HorizontalOffset.Value, Settings.VerticalOffset.Value);
+        }
+        
+        public void SetOffsets(int horizontalOffset, int verticalOffset)
+        { 
+            _ui?.SetOffsets(Settings.Alignment.Value, Settings.VerticalAlignment.Value, 
+                horizontalOffset, verticalOffset);
+        }
+        
         private int SetupQuestObject(QuestClass quest, int questIndex, ref int siblingIndex)
         {
             // Filter out any quest that isn't currently started/done/failed
@@ -237,15 +302,17 @@ namespace DrakiaXYZ.QuestTracker.Components
             }
 
             // Clear the StringBuilders
-            string questName = $"{quest.Template.Name}:";
-            string questProgress;
+            string questName = $"{quest.Template.Name}";
+            string questProgress = "";
+            State state = State.InProgress;
+            
             switch (status)
             {
                 case EQuestStatus.AvailableForFinish:
-                    questProgress = "<color=#00ff00ff>✓</color>";
+                    state = State.Complete;
                     break;
                 case EQuestStatus.MarkedAsFailed:
-                    questProgress = "<color=#ff0000ff>✗</color>";
+                    state = State.Failed;
                     break;
                 default:
                     // No divide by zero errors here
@@ -253,23 +320,16 @@ namespace DrakiaXYZ.QuestTracker.Components
                     double max = quest.Progress.absolute;
                     if (Utils.ApproxEquals(max, 0f))
                     {
-                        questProgress = "<color=#00ff00ff>✓</color>";
+                        state = State.Complete;
                     }
                     else
                     {
-                        if (Settings.ProgressAsPercent.Value)
-                        {
-                            questProgress = $"{Mathf.FloorToInt((float)(current / max) * 100)}%";
-                        }
-                        else
-                        {
-                            questProgress = $"{current} / {max}";
-                        }
+                        questProgress = Settings.ProgressAsPercent.Value ? $"{Mathf.FloorToInt((float)(current / max) * 100)}%" : $"{current} / {max}";
                     }
                     break;
             }
 
-            SetQuestText(siblingIndex++, questIndex++, questName, questProgress);
+            _ui.SetQuestRow(siblingIndex++, questIndex++, questName, questProgress, state);
 
             return questIndex;
         }
@@ -301,86 +361,36 @@ namespace DrakiaXYZ.QuestTracker.Components
 
                 string description = condition.FormattedDescription;
                 string progress = "";
+                State state = State.InProgress;
 
                 if (isConditionDone)
                 {
-                    progress = "<color=#00ff00ff>✓</color>";
+                    state = State.Complete;
                 }
                 else
                 {
                     var conditionHandler = conditionHandlers[condition];
-
+                
                     if (Utils.ConditionHasGetter(conditionHandler))
                     {
                         float max = condition.value;
                         float current = Mathf.Min((float)Utils.ConditionCurrentValue(conditionHandler), max);
 
-                        if (Settings.ObjectivesAsPercent.Value)
+                        if (Mathf.RoundToInt(max) <= 1)
                         {
-                            progress = $"{Mathf.FloorToInt((current / max) * 100)}%";
+                            progress = "";
                         }
                         else
                         {
-                            progress = $"{current} / {max}";
+                            progress = Settings.ObjectivesAsPercent.Value ? $"{Mathf.FloorToInt((current / max) * 100)}%" : $"{current} / {max}";
                         }
                     }
                 }
 
-                SetObjectiveText(siblingIndex++, objectiveIndex++, description, progress);
+                _ui.SetObjectiveRow(siblingIndex++, objectiveIndex++, description, progress, state);
             }
 
             return objectiveIndex;
-        }
-
-        private void SetQuestText(int siblingIndex, int questIndex, string questText, string progressText)
-        {
-            if (questIndex >= _questEntryObjects.Count)
-            {
-                throw new IndexOutOfRangeException("Quest index out of range");
-            }
-
-            Transform questTransform = _questEntryObjects.ElementAt(questIndex).transform;
-            questTransform.SetSiblingIndex(siblingIndex);
-            questTransform.gameObject.SetActive(true);
-
-            questTransform.GetChild(0).GetComponent<Text>().text = questText;
-            questTransform.GetChild(1).GetComponent<Text>().text = progressText;
-        }
-
-        private void SetObjectiveText(int siblingIndex, int objectiveIndex, string objectiveText, string progressText)
-        {
-            if (objectiveIndex >= _questObjectiveObjects.Count)
-            {
-                throw new IndexOutOfRangeException("Quest index out of range");
-            }
-
-            Transform questTransform = _questObjectiveObjects.ElementAt(objectiveIndex).transform;
-            questTransform.SetSiblingIndex(siblingIndex);
-            questTransform.gameObject.SetActive(true);
-
-            questTransform.GetChild(0).GetComponent<Text>().text = objectiveText;
-            questTransform.GetChild(1).GetComponent<Text>().text = progressText;
-        }
-
-        private void CreateObjectivePrefabs(Dictionary<string, Tuple<QuestClass, TrackedQuestData>> trackedQuests, List<QuestClass> mapQuests)
-        {
-            int objectiveCount = 0;
-            foreach (var quest in trackedQuests.Values)
-            {
-                objectiveCount += GetObjectiveCount(quest.Item1, quest.Item2);
-            }
-
-            if (Settings.IncludeMapQuests.Value)
-            {
-                foreach (var quest in mapQuests)
-                {
-                    if (quest.Template != null && trackedQuests.ContainsKey(quest.Id)) continue;
-
-                    objectiveCount += GetObjectiveCount(quest, null);
-                }
-            }
-
-            CreatePrefabs(QuestObjectivesPrefab, _questObjectiveObjects, objectiveCount, Settings.SubFontSize.Value);
         }
 
         private int GetObjectiveCount(QuestClass quest, TrackedQuestData trackedQuestData)
@@ -412,30 +422,64 @@ namespace DrakiaXYZ.QuestTracker.Components
             return objectiveCount;
         }
 
-        private void CreatePrefabs(GameObject prefab, List<GameObject> objectList, int maxPrefabs, int fontSize)
+        private void SetVisible(bool visible)
         {
-            while (objectList.Count < maxPrefabs)
+            _visible = visible;
+            if (_ui?.Group == null)
             {
-                GameObject entry = Instantiate(prefab);
-                objectList.Add(entry);
-
-                entry.transform.SetParent(_panel.transform);
-
-                foreach (var text in entry.GetComponentsInChildren<Text>())
-                {
-                    text.font = GetActiveFont(Settings.CoolKidsClub.Value);
-                    text.fontSize = fontSize;
-                }
+                return;
             }
+
+            _ui.Group.interactable = visible;
+            _ui.Group.blocksRaycasts = visible;
+            
+            if (!isActiveAndEnabled || !gameObject.activeInHierarchy)
+            {
+                _ui.Group.alpha = visible ? 1f : 0f;
+                return;
+            }
+
+            if (_fadeRoutine != null)
+            {
+                StopCoroutine(_fadeRoutine);
+                _fadeRoutine = null;
+            }
+
+            _fadeRoutine = StartCoroutine(FadeTo(visible ? 1f : 0f, FadeDuration));
+        }
+        
+        private IEnumerator FadeTo(float target, float duration)
+        {
+            float start = _ui.Group.alpha;
+
+            if (duration <= 0f)
+            {
+                _ui.Group.alpha = target;
+                _fadeRoutine = null;
+                yield break;
+            }
+
+            float t = 0f;
+            while (t < duration)
+            {
+                t += Time.unscaledDeltaTime;
+                _ui.Group.alpha = Mathf.Lerp(start, target, Mathf.Clamp01(t / duration));
+                yield return null;
+            }
+
+            _ui.Group.alpha = target;
+            _fadeRoutine = null;
         }
 
         private void OnDestroy()
         {
-#if DEBUG
-            Logger.LogInfo("QuestTrackerPanelComponent Destroy");
-#endif
-            Utils.DestroyAllChildren(_panel.transform);
-            Destroy(_panel);
+            if (_fadeRoutine != null)
+            {
+                StopCoroutine(_fadeRoutine);
+                _fadeRoutine = null;
+            }
+
+            _ui?.Destroy();
         }
     }
 }

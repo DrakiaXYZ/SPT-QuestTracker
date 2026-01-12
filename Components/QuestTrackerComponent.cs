@@ -31,7 +31,7 @@ namespace DrakiaXYZ.QuestTracker.Components
         private List<QuestClass> mapQuests = new List<QuestClass>();
         private Dictionary<string, Tuple<QuestClass, TrackedQuestData>> trackedQuests = new Dictionary<string, Tuple<QuestClass, TrackedQuestData>>();
         private CommonUI commonUi;
-
+        
         protected ManualLogSource Logger;
 
         public QuestTrackerComponent()
@@ -146,7 +146,7 @@ namespace DrakiaXYZ.QuestTracker.Components
         {
             SettingChangedEventArgs e = (SettingChangedEventArgs)args;
 
-            if (e.ChangedSetting.Definition.Section == Settings.DisplaySectionTitle)
+            if (Settings.Sections.IsGui(e.ChangedSetting.Definition.Section))
             {
                 GuiSettingsChanged(sender, args);
                 return;
@@ -183,6 +183,26 @@ namespace DrakiaXYZ.QuestTracker.Components
             {
                 panel.SetSubFontSize(Settings.SubFontSize.Value);
             }
+            
+            if (e.ChangedSetting == Settings.MainProgressWidth )
+            {
+                panel.SetMainProgressWidth(Settings.MainProgressWidth.Value);
+            }
+            
+            if (e.ChangedSetting == Settings.SubProgressWidth)
+            {
+                panel.SetSubProgressWidth(Settings.SubProgressWidth.Value);
+            }
+            
+            if (e.ChangedSetting == Settings.MainTextColor)
+            {
+                panel.SetMainColor(Settings.MainTextColor.Value);
+            }
+            
+            if (e.ChangedSetting == Settings.SubTextColor)
+            {
+                panel.SetSubColor(Settings.SubTextColor.Value);
+            }
 
             if (e.ChangedSetting == Settings.Transparency)
             {
@@ -193,20 +213,42 @@ namespace DrakiaXYZ.QuestTracker.Components
             {
                 panel.SetAlignment(Settings.Alignment.Value);
             }
-
-            if (e.ChangedSetting == Settings.CoolKidsClub)
+            
+            if (e.ChangedSetting == Settings.VerticalAlignment)
             {
-                panel.SetFont(Settings.CoolKidsClub.Value);
+                panel.SetVerticalAlignment(Settings.VerticalAlignment.Value);
+            }
+
+            if (e.ChangedSetting == Settings.HorizontalOffset || e.ChangedSetting == Settings.VerticalOffset)
+            {
+                panel.SetOffsets(Settings.HorizontalOffset.Value, Settings.VerticalOffset.Value);
             }
 
             if (e.ChangedSetting == Settings.MaxWidth)
             {
                 panel.SetWidth(Settings.MaxWidth.Value);
             }
+            
+            if (e.ChangedSetting == Settings.WrapText)
+            {
+                panel.SetWrapText(Settings.WrapText.Value);
+            }
+            
+            if (e.ChangedSetting.Definition.Section == Settings.Sections.RowsSettingsSectionTitle)
+            {
+                CacheQuests();
+            }
         }
 
         private void CacheQuests()
         {
+            if (Settings.TestContent.Value)
+            {
+                lastUpdate = 0;
+                panel.SetTestContent();
+                return;
+            }
+            
             trackedQuests.Clear();
 
             foreach (var trackedQuest in QuestsTracker.GetTrackedQuests())
@@ -245,6 +287,11 @@ namespace DrakiaXYZ.QuestTracker.Components
 
         public void Update()
         {
+            if (Settings.TestContent.Value)
+            {
+                return;
+            }
+            
             // Check for the toggle button
             if (IsKeyPressed(Settings.PanelToggleKey.Value))
             {
@@ -257,9 +304,13 @@ namespace DrakiaXYZ.QuestTracker.Components
             }
 
             // Handle auto hiding
-            if (hideTime > 0 && Time.time > hideTime)
+            if (Settings.AutoHide.Value && hideTime > 0 && Time.time > hideTime)
             {
                 panel.Visible = false;
+                hideTime = 0;
+            }
+            else if (!Settings.AutoHide.Value)
+            {
                 hideTime = 0;
             }
 
@@ -277,8 +328,16 @@ namespace DrakiaXYZ.QuestTracker.Components
                 // If show on objective is true, and the panel is hidden or already on a timer, update the timer
                 if (Settings.ShowOnObjective.Value && (!panel.Visible || hideTime > 0))
                 {
-                    hideTime = Time.time + Settings.AutoHideTimer.Value;
                     panel.Visible = true;
+
+                    if (Settings.AutoHide.Value)
+                    {
+                        hideTime = Time.time + Settings.AutoHideTimer.Value;
+                    }
+                    else
+                    {
+                        hideTime = 0;
+                    }
                 }
             }
         }

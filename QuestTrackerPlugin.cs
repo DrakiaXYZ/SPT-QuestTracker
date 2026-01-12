@@ -89,9 +89,6 @@ namespace DrakiaXYZ.QuestTracker
 
             // Condition tracking
             new QuestObjectiveViewShowPatch().Enable();
-
-            // Load UI bundle
-            LoadBundle();
         }
 
         public void Update()
@@ -309,20 +306,6 @@ namespace DrakiaXYZ.QuestTracker
 
                 UpdateConditionDescription(questObjective, quest, condition);
             }
-        }
-
-        private void LoadBundle()
-        {
-            var bundlePath = Path.Combine(PluginFolder, "questtrackerui.bundle");
-            var bundle = AssetBundle.LoadFromFile(bundlePath);
-            if (bundle == null)
-            {
-                throw new Exception($"Error loading bundle: {bundlePath}");
-            }
-
-            QuestTrackerPanelComponent.QuestTrackerPanelPrefab = LoadAsset<GameObject>(bundle, "Assets/QuestTrackerPanel.prefab");
-            QuestTrackerPanelComponent.QuestEntryPrefab = LoadAsset<GameObject>(bundle, "Assets/QuestEntry.prefab");
-            QuestTrackerPanelComponent.QuestObjectivesPrefab = LoadAsset<GameObject>(bundle, "Assets/QuestObjectives.prefab");
         }
 
         private T LoadAsset<T>(AssetBundle bundle, string assetPath) where T : UnityEngine.Object
