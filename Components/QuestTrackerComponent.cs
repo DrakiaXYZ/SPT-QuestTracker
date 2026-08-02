@@ -26,10 +26,10 @@ namespace DrakiaXYZ.QuestTracker.Components
         private GameWorld gameWorld;
         private Player player;
         private AbstractGame abstractGame;
-        private AbstractQuestControllerClass questController;
+        private QuestController questController;
 
-        private List<QuestClass> mapQuests = new List<QuestClass>();
-        private Dictionary<string, Tuple<QuestClass, TrackedQuestData>> trackedQuests = new Dictionary<string, Tuple<QuestClass, TrackedQuestData>>();
+        private List<Quest> mapQuests = new List<Quest>();
+        private Dictionary<string, Tuple<Quest, TrackedQuestData>> trackedQuests = new Dictionary<string, Tuple<Quest, TrackedQuestData>>();
         private CommonUI commonUi;
 
         protected ManualLogSource Logger;
@@ -63,15 +63,15 @@ namespace DrakiaXYZ.QuestTracker.Components
             {
                 throw new Exception("Error creating QuestTrackerComponent, commonUi was null");
             }
-            
-            questController = AccessTools.Field(typeof(Player), "_questController").GetValue(player) as AbstractQuestControllerClass;
+
+            questController = player.QuestController;
             if (questController == null)
             {
                 throw new Exception("Error creating QuestTrackerComponent, questController was null");
             }
 
             // Add the panel to the BattleUiScreen
-            panel = Utils.GetOrAddComponent<QuestTrackerPanelComponent>(Singleton<CommonUI>.Instance.EftBattleUIScreen);
+            panel = Singleton<CommonUI>.Instance.EftBattleUIScreen.GetOrAddComponent<QuestTrackerPanelComponent>();
             panel.Visible = Settings.VisibleAtRaidStart.Value;
             if (panel.Visible && Settings.AutoHide.Value)
             {
@@ -82,7 +82,7 @@ namespace DrakiaXYZ.QuestTracker.Components
 
             // Add any current map quests
             var localGameBaseType = PatchConstants.LocalGameType.BaseType;
-            locationId = AccessTools.Property(localGameBaseType, "LocationObjectId").GetValue(abstractGame) as string;
+            locationId = abstractGame.LocationObjectId;
             foreach (var quest in player.Profile.QuestsData)
             {
                 if (quest == null) continue;
@@ -98,7 +98,7 @@ namespace DrakiaXYZ.QuestTracker.Components
                     status == EQuestStatus.MarkedAsFailed) &&
                     IsSameMap(quest.Template.LocationId, locationId))
                 {
-                    QuestClass questInstance = Utils.GetQuest(questController, quest.Id);
+                    Quest questInstance = questController.Quests.GetConditional(quest.Id);
                     if (questInstance == null)
                     {
                         Logger.LogWarning($"Quest instance null {quest.Id}");
@@ -215,7 +215,7 @@ namespace DrakiaXYZ.QuestTracker.Components
                 if (!trackedQuest.Value.Tracked) continue;
 
                 string questId = trackedQuest.Key;
-                QuestClass quest = Utils.GetQuest(questController, questId);
+                Quest quest = questController.Quests.GetConditional(questId);
                 if (quest == null)
                 {
 #if DEBUG
@@ -229,7 +229,7 @@ namespace DrakiaXYZ.QuestTracker.Components
                     || quest.Template.LocationId.ToLower() == "any"
                     || quest.Template.LocationId.ToLower() == "marathon")
                 {
-                    trackedQuests.Add(questId, new Tuple<QuestClass, TrackedQuestData>(quest, trackedQuest.Value));
+                    trackedQuests.Add(questId, new Tuple<Quest, TrackedQuestData>(quest, trackedQuest.Value));
                 }
             }
 
@@ -315,7 +315,7 @@ namespace DrakiaXYZ.QuestTracker.Components
             if (Singleton<AbstractGame>.Instantiated)
             {
                 var gameWorld = Singleton<GameWorld>.Instance;
-                Utils.GetOrAddComponent<QuestTrackerComponent>(gameWorld);
+                gameWorld.GetOrAddComponent<QuestTrackerComponent>();
             }
         }
 

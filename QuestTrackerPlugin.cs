@@ -16,12 +16,11 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using QuestStatusComparerClass = GClass3796;
 
 namespace DrakiaXYZ.QuestTracker
 {
-    [BepInPlugin("xyz.drakia.questtracker", "DrakiaXYZ-QuestTracker", "1.6.0")]
-    [BepInDependency("com.SPT.core", "4.0.0")]
+    [BepInPlugin("xyz.drakia.questtracker", "DrakiaXYZ-QuestTracker", "1.7.0")]
+    [BepInDependency("com.SPT.core", "4.1.0")]
     public class QuestTrackerPlugin : BaseUnityPlugin
     {
         public static string PluginFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
@@ -39,16 +38,12 @@ namespace DrakiaXYZ.QuestTracker
         private EventSystem _eventSystem;
 
         private static FieldInfo _taskQuestClassField;
-        private static FieldInfo _statusLabelField;
-        private static MethodInfo _getColorMethod;
-        private static MethodInfo _questListItemUpdateViewMethod;
 
-        private static FieldInfo _objectiveQuestClassField;
+        private static FieldInfo _objectiveQuestField;
         private static FieldInfo _objectiveConditionField;
-        private static FieldInfo _descriptionField;
         private static FieldInfo _questListSelectedField;
 
-        private void Awake()
+        public void Awake()
         {
             if (!TarkovVersion.CheckEftVersion(Logger, Info, Config))
             {
@@ -56,21 +51,14 @@ namespace DrakiaXYZ.QuestTracker
             }
 
             Settings.Init(Config);
-            Utils.Init();
             QuestsTracker.SetLogger(Logger);
             Directory.CreateDirectory(ConfigFolder);
 
             _eventSystem = FindObjectOfType<EventSystem>();
 
-            Type notesTaskType = typeof(NotesTask);
-            _taskQuestClassField = AccessTools.GetDeclaredFields(notesTaskType).Single(x => x.FieldType == typeof(QuestClass));
-            _statusLabelField = AccessTools.Field(notesTaskType, "_statusLabel");
-            _getColorMethod = AccessTools.GetDeclaredMethods(notesTaskType).Single(x => x.ReturnType == typeof(Color));
-            _questListItemUpdateViewMethod = AccessTools.Method(typeof(QuestListItem), "UpdateView");
-
-            _objectiveQuestClassField = AccessTools.Field(typeof(QuestObjectiveView), "questClass");
+            _taskQuestClassField = AccessTools.Field(typeof(NotesTask), "_quest");
+            _objectiveQuestField = AccessTools.Field(typeof(QuestObjectiveView), "_quest");
             _objectiveConditionField = AccessTools.Field(typeof(QuestObjectiveView), "Condition");
-            _descriptionField = AccessTools.Field(typeof(QuestObjectiveView), "_description");
             _questListSelectedField = AccessTools.Field(typeof(QuestsListView), "_questListItemSelected");
 
             new MainMenuControllerShowScreenPatch().Enable();
@@ -102,7 +90,7 @@ namespace DrakiaXYZ.QuestTracker
                 QuestObjectiveView questObjective = GetObjectUnderMouse<QuestObjectiveView>();
                 if (questObjective != null)
                 {
-                    var quest = _objectiveQuestClassField.GetValue(questObjective) as QuestClass;
+                    var quest = _objectiveQuestField.GetValue(questObjective) as Quest;
                     var condition = _objectiveConditionField.GetValue(questObjective) as Condition;
 
                     HandleConditionRightClick(quest, condition);
@@ -122,7 +110,7 @@ namespace DrakiaXYZ.QuestTracker
                 NotesTask notesTask = GetObjectUnderMouse<NotesTask>();
                 if (notesTask != null)
                 {
-                    var quest = _taskQuestClassField.GetValue(notesTask) as QuestClass;
+                    var quest = _taskQuestClassField.GetValue(notesTask) as Quest;
                     HandleQuestRightClick(quest);
 
                     // Update the task status
@@ -145,7 +133,7 @@ namespace DrakiaXYZ.QuestTracker
                 if (questListItem != null)
                 {
                     HandleQuestRightClick(questListItem.Quest);
-                    _questListItemUpdateViewMethod.Invoke(questListItem, null);
+                    questListItem.UpdateView();
 
                     questScreen = questListItem.GetComponentInParent<QuestsScreen>();
                 }
@@ -154,7 +142,7 @@ namespace DrakiaXYZ.QuestTracker
                 QuestObjectiveView questObjective = GetObjectUnderMouse<QuestObjectiveView>();
                 if (questObjective != null)
                 {
-                    var quest = _objectiveQuestClassField.GetValue(questObjective) as QuestClass;
+                    var quest = _objectiveQuestField.GetValue(questObjective) as Quest;
                     var condition = _objectiveConditionField.GetValue(questObjective) as Condition;
                     HandleConditionRightClick(quest, condition);
 
@@ -169,7 +157,7 @@ namespace DrakiaXYZ.QuestTracker
                     if (questListView != null)
                     {
                         QuestListItem selected = _questListSelectedField.GetValue(questListView) as QuestListItem;
-                        _questListItemUpdateViewMethod.Invoke(selected, null);
+                        selected.UpdateView();
                     }
 
                     // Update the objective list
@@ -182,7 +170,7 @@ namespace DrakiaXYZ.QuestTracker
             }
         }
 
-        private void HandleQuestRightClick(QuestClass quest)
+        private void HandleQuestRightClick(Quest quest)
         {
             // If the quest isn't in progress, don't do anything
             EQuestStatus status = quest.QuestStatus;
@@ -203,7 +191,7 @@ namespace DrakiaXYZ.QuestTracker
             QuestsTracker.Save();
         }
 
-        private void HandleConditionRightClick(QuestClass quest, Condition condition)
+        private void HandleConditionRightClick(Quest quest, Condition condition)
         {
             // If the quest isn't in progress, don't do anything
             EQuestStatus status = quest.QuestStatus;
@@ -272,8 +260,8 @@ namespace DrakiaXYZ.QuestTracker
          */
         private void UpdateTaskStatus(NotesTask notesTask)
         {
-            var quest = _taskQuestClassField.GetValue(notesTask) as QuestClass;
-            var statusLabel = _statusLabelField.GetValue(notesTask) as TextMeshProUGUI;
+            var quest = _taskQuestClassField.GetValue(notesTask) as Quest;
+            var statusLabel = notesTask._statusLabel;
 
             if (QuestsTracker.IsTracked(quest))
             {
@@ -285,16 +273,16 @@ namespace DrakiaXYZ.QuestTracker
             switch (quest.QuestStatus)
             {
                 case EQuestStatus.Started:
-                    statusLabel.text = Utils.Localized("QuestStatusStarted");
-                    statusLabel.color = (Color)_getColorMethod.Invoke(notesTask, new object[] { "active_font" });
+                    statusLabel.text = "QuestStatusStarted".Localized();
+                    statusLabel.color = notesTask.GetColor("active_font");
                     break;
                 case EQuestStatus.AvailableForFinish:
-                    statusLabel.text = Utils.Localized("QuestStatusSuccess");
-                    statusLabel.color = (Color)_getColorMethod.Invoke(notesTask, new object[] { "finished_font" });
+                    statusLabel.text = "QuestStatusSuccess".Localized();
+                    statusLabel.color = notesTask.GetColor("finished_font");
                     break;
                 case EQuestStatus.MarkedAsFailed:
-                    statusLabel.text = Utils.Localized("QuestStatusFail");
-                    statusLabel.color = (Color)_getColorMethod.Invoke(notesTask, new object[] { "failed_font" });
+                    statusLabel.text = "QuestStatusFail".Localized();
+                    statusLabel.color = notesTask.GetColor("failed_font");
                     break;
             }
         }
@@ -304,7 +292,7 @@ namespace DrakiaXYZ.QuestTracker
             var questObjectives = parentObject.GetComponentsInChildren<QuestObjectiveView>();
             foreach (var questObjective in questObjectives)
             {
-                var quest = _objectiveQuestClassField.GetValue(questObjective) as QuestClass;
+                var quest = _objectiveQuestField.GetValue(questObjective) as Quest;
                 var condition = _objectiveConditionField.GetValue(questObjective) as Condition;
 
                 UpdateConditionDescription(questObjective, quest, condition);
@@ -338,10 +326,8 @@ namespace DrakiaXYZ.QuestTracker
             return asset;
         }
 
-        public static void UpdateConditionDescription(QuestObjectiveView questObjective, QuestClass quest, Condition condition)
+        public static void UpdateConditionDescription(QuestObjectiveView questObjective, Quest quest, Condition condition)
         {
-            TextMeshProUGUI description = _descriptionField.GetValue(questObjective) as TextMeshProUGUI;
-
             string descriptionText = condition.FormattedDescription;
             if (!condition.IsNecessary)
             {
@@ -354,7 +340,7 @@ namespace DrakiaXYZ.QuestTracker
                     " <color=#" + ColorUtility.ToHtmlStringRGB(QuestTrackerPlugin.TrackedConditionColor) + ">" + ConditionTracked + "</color>";
             }
 
-            description.text = descriptionText;
+            questObjective._description.text = descriptionText;
         }
     }
 
@@ -365,17 +351,14 @@ namespace DrakiaXYZ.QuestTracker
      */
     class MainMenuControllerShowScreenPatch : ModulePatch
     {
-        private static FieldInfo _questControllerField;
         private static bool _questsLoaded = false;
         protected override MethodBase GetTargetMethod()
         {
-            _questControllerField = AccessTools.GetDeclaredFields(typeof(MainMenuControllerClass)).FirstOrDefault(x => typeof(AbstractQuestControllerClass).IsAssignableFrom(x.FieldType));
-
-            return AccessTools.Method(typeof(MainMenuControllerClass), "ShowScreen");
+            return AccessTools.Method(typeof(MainMenuShowOperation), nameof(MainMenuShowOperation.ShowScreen));
         }
 
         [PatchPostfix]
-        private static void PatchPostfix(MainMenuControllerClass __instance)
+        public static void PatchPostfix(MainMenuShowOperation __instance)
         {
             if (_questsLoaded) return;
             _questsLoaded = true;
@@ -384,8 +367,7 @@ namespace DrakiaXYZ.QuestTracker
 #endif
 
             // Load list of tracked quests
-            AbstractQuestControllerClass questController = _questControllerField.GetValue(__instance) as AbstractQuestControllerClass;
-            if (!QuestsTracker.Load(questController))
+            if (!QuestsTracker.Load(__instance.QuestController))
             {
                 Logger.LogError("Error, unable to load tracked quests. Clearing");
             }
@@ -399,8 +381,7 @@ namespace DrakiaXYZ.QuestTracker
     {
         protected override MethodBase GetTargetMethod()
         {
-            Type tasksScreenType = typeof(TasksScreen);
-            return AccessTools.Method(tasksScreenType, "Show");
+            return AccessTools.Method(typeof(TasksScreen), nameof(TasksScreen.Show));
         }
 
         [PatchPostfix]
@@ -422,8 +403,7 @@ namespace DrakiaXYZ.QuestTracker
     {
         protected override MethodBase GetTargetMethod()
         {
-            Type tasksScreenType = typeof(TasksScreen);
-            return AccessTools.Method(tasksScreenType, "Close");
+            return AccessTools.Method(typeof(TasksScreen), nameof(TasksScreen.Close));
         }
 
         [PatchPostfix]
@@ -443,7 +423,7 @@ namespace DrakiaXYZ.QuestTracker
     {
         protected override MethodBase GetTargetMethod()
         {
-            return AccessTools.Method(typeof(QuestsScreen), "Show");
+            return AccessTools.Method(typeof(QuestsScreen), nameof(QuestsScreen.Show));
         }
 
         [PatchPostfix]
@@ -465,7 +445,7 @@ namespace DrakiaXYZ.QuestTracker
     {
         protected override MethodBase GetTargetMethod()
         {
-            return AccessTools.Method(typeof(QuestsScreen), "Close");
+            return AccessTools.Method(typeof(QuestsScreen), nameof(QuestsScreen.Close));
         }
 
         [PatchPostfix]
@@ -485,7 +465,7 @@ namespace DrakiaXYZ.QuestTracker
     {
         protected override MethodBase GetTargetMethod()
         {
-            return AccessTools.Method(typeof(QuestListItem), "UpdateView");
+            return AccessTools.Method(typeof(QuestListItem), nameof(QuestListItem.UpdateView));
         }
 
         [PatchPostfix]
@@ -511,7 +491,7 @@ namespace DrakiaXYZ.QuestTracker
         }
 
         [PatchPostfix]
-        public static void PatchPostfix(QuestObjectiveView __instance, QuestClass quest, Condition condition)
+        public static void PatchPostfix(QuestObjectiveView __instance, Quest quest, Condition condition)
         {
             QuestTrackerPlugin.UpdateConditionDescription(__instance, quest, condition);
         }
@@ -522,20 +502,19 @@ namespace DrakiaXYZ.QuestTracker
      */
     class NotesTaskStatusPatch : ModulePatch
     {
-        private static FieldInfo _questClassField;
+        private static FieldInfo _questField;
 
         protected override MethodBase GetTargetMethod()
         {
-            Type notesTaskType = typeof(NotesTask);
-            _questClassField = AccessTools.GetDeclaredFields(notesTaskType).Single(x => x.FieldType == typeof(QuestClass));
+            _questField = AccessTools.Field(typeof(NotesTask), "_quest");
 
-            return AccessTools.GetDeclaredMethods(notesTaskType).Single(x => x.GetParameters().Length == 1 && x.GetParameters()[0].ParameterType == typeof(Color));
+            return AccessTools.Method(typeof(NotesTask), nameof(NotesTask.SetBackgroundsColor));
         }
 
         [PatchPostfix]
         public static void PatchPostfix(NotesTask __instance, TextMeshProUGUI ____statusLabel)
         {
-            var quest = _questClassField.GetValue(__instance) as QuestClass;
+            var quest = _questField.GetValue(__instance) as Quest;
             if (QuestsTracker.IsTracked(quest))
             {
                 ____statusLabel.text = QuestTrackerPlugin.TrackedStatus;
@@ -555,7 +534,7 @@ namespace DrakiaXYZ.QuestTracker
             Type compareClassType = Type.GetType("DrakiaXYZ.TaskListFixes.Comparers.QuestStatusComparer, DrakiaXYZ-TaskListFixes");
             if (compareClassType == null)
             {
-                compareClassType = typeof(QuestStatusComparerClass);
+                compareClassType = typeof(QuestStatusComparer);
             }
 
             return AccessTools.Method(compareClassType, "Compare");
@@ -564,8 +543,8 @@ namespace DrakiaXYZ.QuestTracker
         [PatchPostfix]
         public static void PatchPostfix(object[] __args, ref int __result)
         {
-            QuestClass leftQuest = __args[0] as QuestClass;
-            QuestClass rightQuest = __args[1] as QuestClass;
+            Quest leftQuest = __args[0] as Quest;
+            Quest rightQuest = __args[1] as Quest;
 
             bool leftTracked = QuestsTracker.IsTracked(leftQuest);
             bool rightTracked = QuestsTracker.IsTracked(rightQuest);

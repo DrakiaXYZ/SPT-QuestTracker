@@ -11,8 +11,8 @@ namespace DrakiaXYZ.QuestTracker.Helpers
 {
     internal class QuestsTracker
     {
-        public static event EventHandler<QuestClass> QuestTracked;
-        public static event EventHandler<QuestClass> QuestUntracked;
+        public static event EventHandler<Quest> QuestTracked;
+        public static event EventHandler<Quest> QuestUntracked;
         public static event EventHandler<Condition> ConditionTracked;
         public static event EventHandler<Condition> ConditionUntracked;
         
@@ -27,7 +27,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
             _logger = logger;
         }
 
-        public static bool TrackQuest(QuestClass quest)
+        public static bool TrackQuest(Quest quest)
         {
             bool wasTracked = false;
             string questId = quest.Id;
@@ -52,7 +52,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
             return wasTracked;
         }
 
-        public static bool UntrackQuest(QuestClass quest)
+        public static bool UntrackQuest(Quest quest)
         {
             bool wasUntracked = false;
             string questId = quest.Id;
@@ -75,7 +75,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
             return wasUntracked;
         }
 
-        public static bool IsTracked(QuestClass quest)
+        public static bool IsTracked(Quest quest)
         {
             string questId = quest.Id;
             bool tracked = false;
@@ -95,7 +95,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
             return tracked;
         }
 
-        public static bool TrackCondition(QuestClass quest, Condition condition)
+        public static bool TrackCondition(Quest quest, Condition condition)
         {
             if (_instance._trackedQuests.TryGetValue(quest.Id, out var trackedQuestData))
             {
@@ -109,7 +109,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
             return false;
         }
 
-        public static bool UntrackCondition(QuestClass quest, Condition condition)
+        public static bool UntrackCondition(Quest quest, Condition condition)
         {
             if (_instance._trackedQuests.TryGetValue(quest.Id, out var trackedQuestData))
             {
@@ -130,7 +130,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
             return false;
         }
 
-        public static bool IsTracked(QuestClass quest, Condition condition)
+        public static bool IsTracked(Quest quest, Condition condition)
         {
             // If we're not tracking the parent quest, we're not tracking the condition
             if (_instance._trackedQuests.TryGetValue(quest.Id, out var trackedQuestData) && trackedQuestData.Tracked)
@@ -166,7 +166,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
             streamWriter.Close();
         }
 
-        public static bool Load(AbstractQuestControllerClass questController)
+        public static bool Load(QuestController questController)
         {
             _instance._trackedQuests = new Dictionary<string, TrackedQuestData>();
             _profile = questController.Profile;
@@ -194,7 +194,7 @@ namespace DrakiaXYZ.QuestTracker.Helpers
             int initialCount = _instance._trackedQuests.Count;
             _instance._trackedQuests = _instance._trackedQuests.Where((entry) =>
             {
-                QuestClass quest = Utils.GetQuest(questController, entry.Key);
+                Quest quest = questController.Quests.GetConditional(entry.Key);
                 if (quest == null)
                 {
                     return false;

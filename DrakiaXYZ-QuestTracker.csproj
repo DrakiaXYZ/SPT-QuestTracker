@@ -5,8 +5,8 @@
     <RootNamespace>DrakiaXYZ.QuestTracker</RootNamespace>
     <Nullable>disable</Nullable>
     <Authors>DrakiaXYZ</Authors>
-    <Copyright>Copyright © 2025 DrakiaXYZ</Copyright>
-    <AssemblyVersion>1.6.0</AssemblyVersion>
+    <Copyright>Copyright © 2026 DrakiaXYZ</Copyright>
+    <AssemblyVersion>1.7.0</AssemblyVersion>
     <FileVersion>$(AssemblyVersion)</FileVersion>
     <Configurations>Debug;Release;Package</Configurations>
     <Version>$(AssemblyVersion)</Version>
